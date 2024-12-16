@@ -1,10 +1,9 @@
 use embedded_graphics::{
     draw_target::DrawTarget,
     pixelcolor::Rgb565,
-    prelude::*,
 };
 
-use crate::button::Button;
+use crate::components::button::Button;
 
 /// A trait for components that can be toggled.
 pub trait Toggleable {
@@ -18,6 +17,7 @@ pub trait Toggleable {
 pub enum Drawable {
     Background(crate::utils::background::Background),
     Button(Button),
+    Label(crate::components::label::Label),
 }
 
 impl Drawable {
@@ -26,6 +26,7 @@ impl Drawable {
         match self {
             Drawable::Button(button) => button.draw(target),
             Drawable::Background(background) => background.draw(target),
+            Drawable::Label(label) => label.draw(target),
         }
     }
 }
@@ -35,6 +36,7 @@ impl Toggleable for Drawable {
         match self {
             Drawable::Button(button) => button.toggle(state),
             Drawable::Background(_) => {}
+            Drawable::Label(_) => {}
         }
     }
 
@@ -45,7 +47,7 @@ impl Toggleable for Drawable {
 
 /// A trait for components that can be drawn.
 pub trait DrawableComponent {
-    /// Draws the component on the given draw target.
+    // Draws the component on the given draw target.
     fn draw<D: DrawTarget<Color = Rgb565>>(&self, target: &mut D) -> Result<(), D::Error>;
 }
 

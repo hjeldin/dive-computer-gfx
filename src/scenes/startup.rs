@@ -1,6 +1,6 @@
-use embedded_graphics::{prelude::{Point, Size}, primitives::Rectangle};
+use embedded_graphics::prelude::{Point, Size};
 
-use crate::{button::Button, scene::{self, scene_manager}, utils::background::Background};
+use crate::{components::button::Button, scene::{self, scene_manager}, utils::background::Background};
 
 pub fn build_startup() -> scene::Scene {
     let mut scene = scene::Scene::new();

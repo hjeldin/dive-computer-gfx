@@ -7,7 +7,6 @@ use embedded_graphics::{
     mono_font::{ascii::FONT_6X9, MonoTextStyle},
 };
 use embedded_graphics::geometry::Size;
-use heapless::String;
 
 use crate::common::DrawableComponent;
 

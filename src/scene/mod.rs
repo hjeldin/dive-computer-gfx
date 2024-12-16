@@ -25,7 +25,7 @@ impl Scene {
 
     /// Add a component to the scene.
     pub fn add_component(&mut self, component: Drawable) {
-        self.components.push(component);
+        let _ = self.components.push(component);
     }
 
     /// Draw all components in the scene.

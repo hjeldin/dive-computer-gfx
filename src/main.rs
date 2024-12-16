@@ -1,15 +1,12 @@
 #![no_std]
-use button::Button;
-use common::Toggleable;
-use embedded_graphics::geometry::{Point, Size};
 use embedded_graphics::pixelcolor::Rgb565;
+use embedded_graphics::prelude::Size;
 use embedded_graphics_simulator::sdl2::Keycode;
 use embedded_graphics_simulator::{
     OutputSettingsBuilder, SimulatorDisplay, SimulatorEvent, Window,
 };
-use heapless::Vec;
 
-mod button;
+mod components;
 mod common;
 mod scene;
 mod scenes;
@@ -17,8 +14,6 @@ mod status;
 mod utils;
 
 fn main() -> Result<(), core::convert::Infallible> {
-    let selected: Option<&mut dyn Toggleable>;
-
     let mut display: SimulatorDisplay<Rgb565> = SimulatorDisplay::new(Size::new(320, 240));
 
     let output_settings = OutputSettingsBuilder::new().scale(2).build();

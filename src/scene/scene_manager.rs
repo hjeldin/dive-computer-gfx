@@ -40,7 +40,7 @@ impl SceneManager {
 
     /// Add a new scene to the manager.
     pub fn add_scene(&mut self, scene: Scene) {
-        self.scenes.push(scene);
+        let _ = self.scenes.push(scene);
         if self.current_scene_index.is_none() {
             // Automatically set the first added scene as the active one.
             self.current_scene_index = Some(0);
@@ -59,7 +59,7 @@ impl SceneManager {
     /// Update the currently active scene.
     pub fn update_active_scene(&mut self) {
         if let Some(index) = self.current_scene_index {
-            if let Some(scene) = self.scenes.get_mut(index) {
+            if let Some(_scene) = self.scenes.get_mut(index) {
                 // Perform updates specific to the active scene (e.g., toggling or clicking items).
                 // scene.toggle_next_toggleable(); // Example of scene-specific updates
             }

@@ -3,12 +3,10 @@ use embedded_graphics::{
     pixelcolor::Rgb565,
     prelude::*,
     primitives::{Rectangle, PrimitiveStyleBuilder},
-    text::{Text, TextStyleBuilder},
-    mono_font::{ascii::FONT_6X9, MonoTextStyle},
 };
 use embedded_graphics::geometry::Size;
 
-use crate::common::{Clickable, DrawableComponent, Toggleable};
+use crate::common::DrawableComponent;
 
 
 pub struct Background {
