@@ -1,12 +1,16 @@
 use embedded_graphics::geometry::Size;
 use embedded_graphics::{
     draw_target::DrawTarget,
-    mono_font::{ascii::FONT_6X9, MonoTextStyle},
+    mono_font::{MonoTextStyle},
     pixelcolor::Rgb565,
     prelude::*,
     primitives::{CornerRadii, PrimitiveStyleBuilder, Rectangle, RoundedRectangle, StyledDrawable},
     text::{Text, TextStyleBuilder},
 };
+use profont::PROFONT_9_POINT;
+use core::result::*;
+use core::result::Result::Ok;
+use core::format_args;
 
 pub struct BatteryIndicator {
     level: u8,
@@ -22,7 +26,7 @@ impl BatteryIndicator {
         ((hex_value as u32 * 100) / 255) as u8
     }
 
-    pub fn draw<D: DrawTarget<Color = Rgb565>>(&self, target: &mut D) -> Result<(), D::Error> {
+    pub fn draw<D: DrawTarget<Color = Rgb565>>(&mut self, target: &mut D) -> Result<(), D::Error> {
         let percentage = self.hex_to_percentage(self.level);
 
         let rectangle = RoundedRectangle::new(
@@ -58,7 +62,7 @@ impl BatteryIndicator {
         }
 
         // Style objects
-        let text_style = MonoTextStyle::new(&FONT_6X9, Rgb565::WHITE);
+        let text_style = MonoTextStyle::new(&PROFONT_9_POINT, Rgb565::WHITE);
 
         let mut buf = [0u8; 5];
         let text = format_no_std::show(

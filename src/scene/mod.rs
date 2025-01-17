@@ -2,8 +2,13 @@ use embedded_graphics::{
     draw_target::DrawTarget,
     pixelcolor::Rgb565,
 };
-use crate::common::{Clickable, Drawable, Toggleable};
+use crate::common::{Clickable, Drawable, State, Toggleable};
 use heapless::Vec;
+use core::option::Option::Some;
+use core::option::Option::None;
+use core::result::Result;
+use core::result::Result::Ok;
+use core::option::Option;
 
 pub mod scene_manager;
 
@@ -29,8 +34,8 @@ impl Scene {
     }
 
     /// Draw all components in the scene.
-    pub fn draw<D: DrawTarget<Color = Rgb565>>(&self, target: &mut D) -> Result<(), D::Error> {
-        for component in &self.components {
+    pub fn draw<D: DrawTarget<Color = Rgb565>>(&mut self, target: &mut D) -> Result<(), D::Error> {
+        for component in &mut self.components {
             component.draw(target)?;
         }
         Ok(())
@@ -95,6 +100,12 @@ impl Scene {
             if let Drawable::Button(button) = &mut self.components[index] {
                 button.click(); // Click the currently toggled button
             }
+        }
+    }
+
+    pub fn update(&mut self, state: &State) {
+        for component in &mut self.components {
+            component.update(state);
         }
     }
    

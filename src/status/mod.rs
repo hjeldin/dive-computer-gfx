@@ -4,10 +4,13 @@ use embedded_graphics::{
     prelude::*,
     primitives::{Rectangle, PrimitiveStyleBuilder},
     text::{Text, TextStyleBuilder},
-    mono_font::{ascii::FONT_6X9, MonoTextStyle},
+    mono_font::MonoTextStyle,
 };
 use embedded_graphics::geometry::Size;
-
+use profont::PROFONT_9_POINT;
+use core::format_args;
+use core::result::*;
+use core::result::Result::Ok;
 use crate::common::DrawableComponent;
 
 /// Represents the top status bar component.
@@ -26,11 +29,11 @@ impl StatusBar {
 
     /// Draws the button on the given draw target.
     pub fn draw<D: DrawTarget<Color = Rgb565>>(
-        &self,
+        &mut self,
         target: &mut D,
     ) -> Result<(), D::Error> {
         // Style objects
-        let text_style = MonoTextStyle::new(&FONT_6X9, Rgb565::WHITE);
+        let text_style = MonoTextStyle::new(&PROFONT_9_POINT, Rgb565::WHITE);
         
         // Draw a filled square
         let fill = PrimitiveStyleBuilder::new().fill_color(Rgb565::CSS_SLATE_GRAY).build();
@@ -54,9 +57,16 @@ impl StatusBar {
 
 impl DrawableComponent for StatusBar {
     fn draw<D: DrawTarget<Color = Rgb565>>(
-        &self,
+        &mut self,
         target: &mut D,
     ) -> Result<(), D::Error> {
         self.draw(target)
+    }
+    fn update(&mut self, state: &crate::common::State) {
+        // todo!()
+    }
+
+    fn setNeedsRedraw(&mut self, needs_redraw: bool) {
+        // todo!()
     }
 }

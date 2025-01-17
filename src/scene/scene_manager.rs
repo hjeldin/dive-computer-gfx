@@ -1,20 +1,30 @@
+// use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use embassy_sync::mutex::Mutex;
 use embedded_graphics::{
     pixelcolor::Rgb565,
     prelude::*
 };
 
 use heapless::Vec;
-use once_cell::sync::OnceCell;
-use spin::Mutex;
+use static_cell::StaticCell;
+// use once_cell::sync::OnceCell;
+use core::option::Option::Some;
+use core::option::Option::None;
+use core::result::Result;
+use core::result::Result::Ok;
+use core::option::Option;
+
+// use spin::Mutex;
 
 use super::Scene;
 
-const MAX_SCENES_COUNT: usize = 32;
+const MAX_SCENES_COUNT: usize = 5;
 /// Manages multiple scenes and handles the currently active scene.
 pub struct SceneManager {
     scenes: Vec<Scene, MAX_SCENES_COUNT>,
     current_scene_index: Option<usize>, // None if no scene is active
 }
+static INSTANCE: StaticCell<Mutex<ThreadModeRawMutex, SceneManager>> = StaticCell::new();
 
 impl SceneManager {
     /// Create a new `SceneManager`.
@@ -25,10 +35,9 @@ impl SceneManager {
         }
     }
 
-    pub fn instance() -> &'static Mutex<SceneManager> {
-        static INSTANCE: OnceCell<Mutex<SceneManager>> = OnceCell::new();
-        INSTANCE.get_or_init(|| Mutex::new(SceneManager::new()))
-    }
+    // pub fn instance() -> &'static Mutex<ThreadModeRawMutex, SceneManager> {
+    //     INSTANCE.init(Mutex::new(SceneManager::new()))
+    // }
 
     pub fn get_active_scene(&mut self) -> Option<&mut Scene> {
         if let Some(index) = self.current_scene_index {
@@ -67,9 +76,9 @@ impl SceneManager {
     }
 
     /// Draw the currently active scene to the display.
-    pub fn draw_active_scene<D: DrawTarget<Color = Rgb565>>(&self, target: &mut D) -> Result<(), D::Error> {
+    pub fn draw_active_scene<D: DrawTarget<Color = Rgb565>>(&mut self, target: &mut D) -> Result<(), D::Error> {
         if let Some(index) = self.current_scene_index {
-            if let Some(scene) = self.scenes.get(index) {
+            if let Some(scene) = self.scenes.get_mut(index) {
                 scene.draw(target)?; // Delegate drawing to the active scene
             }
         }
