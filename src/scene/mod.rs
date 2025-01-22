@@ -11,7 +11,6 @@ use core::result::Result::Ok;
 use core::option::Option;
 
 pub mod scene_manager;
-
 const MAX_COMPONENTS: usize = 32;
 
 pub struct Scene {

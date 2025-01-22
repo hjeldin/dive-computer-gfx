@@ -16,7 +16,9 @@ pub fn build_startup() -> scene::Scene {
         "New dive",
     );
     btn_new_dive.set_on_click(|button: &mut Button| {
-        let s = crate::scene_manager::SceneManager::instance();
+        // let s = crate::scene_manager::SceneManager::instance();
+        let scene_manager = unsafe { &mut scene::scene_manager::INSTANCE };
+        scene_manager.switch_scene(1);
     });
 
     let mut btn_settings = Button::new(
@@ -24,7 +26,7 @@ pub fn build_startup() -> scene::Scene {
         Size::new(100, 32),
         "Settings",
     );
-    // scene.add_component(crate::common::Drawable::Background(background));
+    scene.add_component(crate::common::Drawable::Background(background));
     scene.add_component(crate::common::Drawable::Button(btn_new_dive));
     scene.add_component(crate::common::Drawable::Button(btn_settings));
     scene.set_toggle_index(Some(0));

@@ -7,7 +7,7 @@ use embedded_graphics::{
 
 use heapless::Vec;
 use static_cell::StaticCell;
-use once_cell::sync::OnceCell;
+// use once_cell::sync::OnceCell;
 use core::option::Option::Some;
 use core::option::Option::None;
 use core::result::Result;
@@ -24,20 +24,20 @@ pub struct SceneManager {
     scenes: Vec<Scene, MAX_SCENES_COUNT>,
     current_scene_index: Option<usize>, // None if no scene is active
 }
-static INSTANCE: OnceCell<SceneManager> = OnceCell::new();
-
+// static INSTANCE: StaticCell<Mutex<ThreadModeRawMutex, SceneManager>> = StaticCell::new();
+pub static mut INSTANCE: SceneManager = SceneManager::new();
 impl SceneManager {
     /// Create a new `SceneManager`.
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             scenes: Vec::new(),
             current_scene_index: None,
         }
     }
 
-    pub fn instance() -> &'static SceneManager {
-        INSTANCE.get().expect("SceneManager not initialized")
-    }
+    // pub fn instance() -> &'static Mutex<ThreadModeRawMutex, SceneManager> {
+    //     INSTANCE.init(Mutex::new(SceneManager::new()))
+    // }
 
     pub fn get_active_scene(&mut self) -> Option<&mut Scene> {
         if let Some(index) = self.current_scene_index {

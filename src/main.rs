@@ -22,7 +22,7 @@ fn main() -> Result<(), core::convert::Infallible> {
     let mut status_bar = status::StatusBar::new(22, 32);
     let mut battery_indicator = utils::battery::BatteryIndicator::new(0xAA);
 
-    let mut scene_manager = scene::scene_manager::SceneManager::instance();
+    let mut scene_manager = unsafe { &mut scene::scene_manager::INSTANCE };
     
 
     scene_manager.add_scene(scenes::startup::build_startup());
