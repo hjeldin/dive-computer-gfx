@@ -1,5 +1,4 @@
 // #![no_std]
-use common::State;
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::*;
 use embedded_graphics_simulator::sdl2::Keycode;
@@ -7,13 +6,16 @@ use embedded_graphics_simulator::{
     OutputSettingsBuilder, SimulatorDisplay, SimulatorEvent, Window,
 };
 
-mod components;
-mod common;
-mod scene;
-mod scenes;
-mod status;
-mod utils;
+#[cfg(feature = "std")]
+extern crate std;
 
+use stm_graphics::{components, State};
+use stm_graphics::status;
+use stm_graphics::utils;
+use stm_graphics::scene;
+use stm_graphics::scenes;
+
+#[cfg(feature = "simulator")]
 fn main() -> Result<(), core::convert::Infallible> {
     let mut display: SimulatorDisplay<Rgb565> = SimulatorDisplay::new(Size::new(320, 240));
 

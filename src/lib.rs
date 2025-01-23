@@ -1,11 +1,11 @@
 #![no_std]
 
-mod components;
+pub mod components;
 mod common;
-mod scene;
-mod scenes;
-mod status;
-mod utils;
+pub mod scene;
+pub mod scenes;
+pub mod status;
+pub mod utils;
 
 // Re-exporting modules for easier access
 pub use components::*;

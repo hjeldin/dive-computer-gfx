@@ -66,94 +66,94 @@ pub fn build_dive() -> scene::Scene {
     );
 
     let mut depth_val = Label::new(Point::new(12, 82), Size::new(68, 24), "0.00", value_style);
-    // depth_val.set_on_update(|label: &mut Label, state: &State| {
-    //     // Update the label text based on state
-    //     let mut buf = [0u8; 32];
-    //     let text = format_no_std::show(&mut buf, format_args!("{:.2}m", state.pressure));
-    //     if let Ok(text) = text {
-    //         label.set_label_text(&text);
-    //     } else {
-    //         // print error
-    //         // println!("Error updating label text: {:?}", text);
-    //     }
-    // });
+    depth_val.set_on_update(|label: &mut Label, state: &State| {
+        // Update the label text based on state
+        let mut buf = [0u8; 32];
+        let text = format_no_std::show(&mut buf, format_args!("{:.2}m", state.pressure));
+        if let Ok(text) = text {
+            label.set_label_text(&text);
+        } else {
+            // print error
+            // println!("Error updating label text: {:?}", text);
+        }
+    });
 
     let mut ndt_val = Label::new(Point::new(125, 82), Size::new(60, 24), "0.00", value_style);
-    // ndt_val.set_on_update(|label: &mut Label, state: &State| {
-    //     // Update the label text based on state
-    //     let mut buf = [0u8; 32];
-    //     let text = format_no_std::show(
-    //         &mut buf,
-    //         format_args!("{:3}min", ceil(state.pressure as f64) as u32),
-    //     );
-    //     if let Ok(text) = text {
-    //         label.set_label_text(&text);
-    //     } else {
-    //         // print error
-    //         // println!("Error updating label text: {:?}", text);
-    //     }
-    // });
+    ndt_val.set_on_update(|label: &mut Label, state: &State| {
+        // Update the label text based on state
+        let mut buf = [0u8; 32];
+        let text = format_no_std::show(
+            &mut buf,
+            format_args!("{:3}min", ceil(state.pressure as f64) as u32),
+        );
+        if let Ok(text) = text {
+            label.set_label_text(&text);
+        } else {
+            // print error
+            // println!("Error updating label text: {:?}", text);
+        }
+    });
 
     let mut runtime_val = Label::new(Point::new(240, 82), Size::new(46, 24), "0.00", value_style);
-    // runtime_val.set_on_update(|label: &mut Label, state: &State| {
-    //     // Update the label text based on state
-    //     let mut buf = [0u8; 32];
-    //     let text = format_no_std::show(
-    //         &mut buf,
-    //         format_args!("{:3}min", ceil(state.pressure as f64) as u32),
-    //     );
-    //     if let Ok(text) = text {
-    //         label.set_label_text(&text);
-    //     } else {
-    //         // print error
-    //         // println!("Error updating label text: {:?}", text);
-    //     }
-    // });
+    runtime_val.set_on_update(|label: &mut Label, state: &State| {
+        // Update the label text based on state
+        let mut buf = [0u8; 32];
+        let text = format_no_std::show(
+            &mut buf,
+            format_args!("{:3}min", ceil(state.pressure as f64) as u32),
+        );
+        if let Ok(text) = text {
+            label.set_label_text(&text);
+        } else {
+            // print error
+            // println!("Error updating label text: {:?}", text);
+        }
+    });
 
     let mut max_depth_val = Label::new(Point::new(12, 146), Size::new(68, 24), "0.00", value_style);
-    // max_depth_val.set_on_update(|label: &mut Label, state: &State| {
-    //     // Update the label text based on state
-    //     let mut buf = [0u8; 32];
-    //     let text = format_no_std::show(&mut buf, format_args!("{:.2}m", state.pressure));
-    //     if let Ok(text) = text {
-    //         label.set_label_text(&text);
-    //     } else {
-    //         // print error
-    //         // println!("Error updating label text: {:?}", text);
-    //     }
-    // });
+    max_depth_val.set_on_update(|label: &mut Label, state: &State| {
+        // Update the label text based on state
+        let mut buf = [0u8; 32];
+        let text = format_no_std::show(&mut buf, format_args!("{:.2}m", state.pressure));
+        if let Ok(text) = text {
+            label.set_label_text(&text);
+        } else {
+            // print error
+            // println!("Error updating label text: {:?}", text);
+        }
+    });
 
     let mut ceiling_val = Label::new(Point::new(125, 146), Size::new(60, 24), "0.00", value_style);
-    // ceiling_val.set_on_update(|label: &mut Label, state: &State| {
-    //     // Update the label text based on state
-    //     let mut buf = [0u8; 32];
-    //     let text = format_no_std::show(
-    //         &mut buf,
-    //         format_args!("{:3}min", ceil(state.pressure as f64) as u32),
-    //     );
-    //     if let Ok(text) = text {
-    //         label.set_label_text(&text);
-    //     } else {
-    //         // print error
-    //         // println!("Error updating label text: {:?}", text);
-    //     }
-    // });
+    ceiling_val.set_on_update(|label: &mut Label, state: &State| {
+        // Update the label text based on state
+        let mut buf = [0u8; 32];
+        let text = format_no_std::show(
+            &mut buf,
+            format_args!("{:3}min", ceil(state.pressure as f64) as u32),
+        );
+        if let Ok(text) = text {
+            label.set_label_text(&text);
+        } else {
+            // print error
+            // println!("Error updating label text: {:?}", text);
+        }
+    });
 
     let mut asc_rate_val = Label::new(Point::new(240, 146), Size::new(46, 24), "0.00", value_style);
-    // asc_rate_val.set_on_update(|label: &mut Label, state: &State| {
-    //     // Update the label text based on state
-    //     let mut buf = [0u8; 32];
-    //     let text = format_no_std::show(
-    //         &mut buf,
-    //         format_args!("{:3}min", ceil(state.pressure as f64) as u32),
-    //     );
-    //     if let Ok(text) = text {
-    //         label.set_label_text(&text);
-    //     } else {
-    //         // print error
-    //         // println!("Error updating label text: {:?}", text);
-    //     }
-    // });
+    asc_rate_val.set_on_update(|label: &mut Label, state: &State| {
+        // Update the label text based on state
+        let mut buf = [0u8; 32];
+        let text = format_no_std::show(
+            &mut buf,
+            format_args!("{:3}min", ceil(state.pressure as f64) as u32),
+        );
+        if let Ok(text) = text {
+            label.set_label_text(&text);
+        } else {
+            // print error
+            // println!("Error updating label text: {:?}", text);
+        }
+    });
 
     let mut depth_plot = Plot::new(
         Point::new(12, 180),
@@ -161,26 +161,26 @@ pub fn build_dive() -> scene::Scene {
         MonoTextStyle::new(&PROFONT_9_POINT, Rgb565::WHITE),
     );
 
-    // scene.add_component(crate::common::Drawable::Background(background));
+    scene.add_component(crate::common::Drawable::Background(background));
     scene.add_component(crate::common::Drawable::Background(header));
     scene.add_component(crate::common::Drawable::Label(depth_lbl));
     scene.add_component(crate::common::Drawable::Label(ndt_lbl));
     scene.add_component(crate::common::Drawable::Label(runtime_lbl));
 
     scene.add_component(crate::common::Drawable::Label(depth_val));
-    // scene.add_component(crate::common::Drawable::Label(ndt_val));
-    // scene.add_component(crate::common::Drawable::Label(runtime_val));
+    scene.add_component(crate::common::Drawable::Label(ndt_val));
+    scene.add_component(crate::common::Drawable::Label(runtime_val));
 
     scene.add_component(crate::common::Drawable::Background(header_2));
     scene.add_component(crate::common::Drawable::Label(max_depth_lbl));
     scene.add_component(crate::common::Drawable::Label(ceiling_lbl));
     scene.add_component(crate::common::Drawable::Label(asc_rate_lbl));
 
-    // scene.add_component(crate::common::Drawable::Label(max_depth_val));
-    // scene.add_component(crate::common::Drawable::Label(ceiling_val));
-    // scene.add_component(crate::common::Drawable::Label(asc_rate_val));
+    scene.add_component(crate::common::Drawable::Label(max_depth_val));
+    scene.add_component(crate::common::Drawable::Label(ceiling_val));
+    scene.add_component(crate::common::Drawable::Label(asc_rate_val));
 
-    // scene.add_component(crate::common::Drawable::Plot(depth_plot));
+    scene.add_component(crate::common::Drawable::Plot(depth_plot));
 
     scene.set_toggle_index(Some(0));
 

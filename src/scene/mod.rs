@@ -97,6 +97,7 @@ impl Scene {
     pub fn click_currently_toggled(&mut self) {
         if let Some(index) = self.current_toggle_index {
             if let Drawable::Button(button) = &mut self.components[index] {
+                defmt::info!("Clicked button");
                 button.click(); // Click the currently toggled button
             }
         }
