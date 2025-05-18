@@ -37,7 +37,7 @@ fn main() -> Result<(), core::convert::Infallible> {
     let mut quit = false;
 
     let mut s = State::new();
-    s.battery = 0xAA;
+    s.battery = 0x00;
     s.pressure = 10.22;
     s.temperature = 25.0;
 
@@ -45,8 +45,18 @@ fn main() -> Result<(), core::convert::Infallible> {
         if quit {
             return Ok(());
         }
+        // if(s.battery - 1 > 0) {
+        //     s.battery -= 1;
+        // } else {
+        //     s.battery = 0xFF;
+        // }
+
+        battery_indicator.set_level(s.battery);
+        let _ = battery_indicator.draw(&mut display);
         let _ = scene_manager.draw_active_scene(&mut display);
         wnd.update(&display);
+
+
         scene_manager.get_active_scene().unwrap().update(&s);
         wnd.events().for_each(|event| match event {
             SimulatorEvent::Quit => {

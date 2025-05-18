@@ -44,14 +44,14 @@ impl Label {
 
     /// Sets the `on_update` function pointer after creation.
     pub fn set_on_update(&mut self, callback: fn(&mut Self, &State)) {
-        // self.on_update = Some(callback);
+        self.on_update = Some(callback);
     }
 
     /// Calls the `on_update` function if it exists.
     pub fn update(&mut self, state: &State) {
-        // if let Some(callback) = self.on_update {
-        //     callback(self, state);
-        // }
+        if let Some(callback) = self.on_update {
+            callback(self, state);
+        }
     }
 
     /// Updates the label's text.

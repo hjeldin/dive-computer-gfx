@@ -25,6 +25,10 @@ impl BatteryIndicator {
         // Scale the value from 0-255 to 0-100
         ((hex_value as u32 * 100) / 255) as u8
     }
+    
+    pub fn set_level(&mut self, level: u8) {
+        self.level = level;
+    }
 
     pub fn draw<D: DrawTarget<Color = Rgb565>>(&mut self, target: &mut D) -> Result<(), D::Error> {
         let percentage = self.hex_to_percentage(self.level);
@@ -46,19 +50,30 @@ impl BatteryIndicator {
             CornerRadii::new(Size::new(2, 2)),
         );
         let _ = cap.draw_styled(&style, target);
-
-        for index in 0..(percentage-1)/25 {
+        
+        if percentage == 0 {
             let inner_rect_style = PrimitiveStyleBuilder::new()
-                .fill_color(Rgb565::CSS_DARK_GREEN)
+                .fill_color(Rgb565::CSS_DIM_GRAY)
                 .build();
             let rectangle = RoundedRectangle::new(
-                Rectangle::new(
-                    Point::new(index as i32 * 10 + 3, 2),
-                    Size::new(10, 12),
-                ),
+                Rectangle::new(Point::new(3, 2), Size::new(30, 12)),
                 CornerRadii::new(Size::new(2, 2)),
             );
             let _ = rectangle.draw_styled(&inner_rect_style, target);
+        } else {
+            for index in 0..(percentage - 1) / 25 {
+                let inner_rect_style = PrimitiveStyleBuilder::new()
+                    .fill_color(Rgb565::CSS_DARK_GREEN)
+                    .build();
+                let rectangle = RoundedRectangle::new(
+                    Rectangle::new(
+                        Point::new(index as i32 * 10 + 3, 2),
+                        Size::new(10, 12),
+                    ),
+                    CornerRadii::new(Size::new(2, 2)),
+                );
+                let _ = rectangle.draw_styled(&inner_rect_style, target);
+            }
         }
 
         // Style objects
