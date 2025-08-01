@@ -83,6 +83,11 @@ impl Label {
 }
 
 impl DrawableComponent for Label {
+    fn initialize(&mut self) {
+        // Initialize any resources needed by the label
+        self.needs_redraw = true; // Mark for initial draw
+    }
+
     fn draw<D: DrawTarget<Color = Rgb565>>(&mut self, target: &mut D) -> Result<(), D::Error> {
         defmt::info!("Label draw");
         self.draw(target)
@@ -92,7 +97,12 @@ impl DrawableComponent for Label {
         self.update(state);
     }
 
-    fn setNeedsRedraw(&mut self, needs_redraw: bool) {
-        // todo!()
+    fn set_needs_redraw(&mut self, needs_redraw: bool) {
+        self.needs_redraw = needs_redraw;
+    }
+
+    fn cleanup(&mut self) {
+        // Release any resources used by the label
+        self.on_update = None;
     }
 }

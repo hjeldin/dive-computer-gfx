@@ -16,7 +16,8 @@ use core::result::Result::Ok;
 pub struct Background {
     position: Point,
     size: Size,
-    style: Option<PrimitiveStyle<Rgb565>>
+    style: Option<PrimitiveStyle<Rgb565>>,
+    needs_redraw: bool
 }
 
 impl Background {
@@ -24,7 +25,8 @@ impl Background {
         Self {
             position,
             size,
-            style
+            style,
+            needs_redraw: true
         }
     }
 
@@ -42,7 +44,7 @@ impl Background {
             let border_style = PrimitiveStyleBuilder::new()
                 .fill_color(Rgb565::BLACK)
                 .build();
-    
+
             // Draw the button's background (rectangle)
             let rect = Rectangle::new(self.position, self.size).into_styled(border_style);
             rect.draw(target)?;
@@ -54,17 +56,26 @@ impl Background {
 }
 
 impl DrawableComponent for Background {
+    fn initialize(&mut self) {
+        // Initialize any resources needed by the background
+        self.needs_redraw = true; // Mark for initial draw
+    }
+
     fn draw<D: DrawTarget<Color = Rgb565>>(&mut self, target: &mut D) -> Result<(), D::Error> {
         defmt::info!("Bkg draw");
         self.draw(target)
     }
-    
+
     fn update(&mut self, state: &crate::common::State) {
-        // todo!()
+        // Background doesn't need to update based on state
     }
 
-    fn setNeedsRedraw(&mut self, needs_redraw: bool) {
-        // todo!()
+    fn set_needs_redraw(&mut self, needs_redraw: bool) {
+        self.needs_redraw = needs_redraw;
     }
-    
+
+    fn cleanup(&mut self) {
+        // Release any resources used by the background
+        // Currently no resources to clean up
+    }
 }

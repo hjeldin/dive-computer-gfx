@@ -83,6 +83,11 @@ impl Plot {
 }
 
 impl DrawableComponent for Plot {
+    fn initialize(&mut self) {
+        // Initialize any resources needed by the plot
+        self.needs_redraw = true; // Mark for initial draw
+    }
+
     fn draw<D: DrawTarget<Color = Rgb565>>(&mut self, target: &mut D) -> Result<(), D::Error> {
         self.draw(target)
     }
@@ -91,7 +96,12 @@ impl DrawableComponent for Plot {
         self.update(state);
     }
 
-    fn setNeedsRedraw(&mut self, needs_redraw: bool) {
+    fn set_needs_redraw(&mut self, needs_redraw: bool) {
         self.needs_redraw = needs_redraw;
+    }
+
+    fn cleanup(&mut self) {
+        // Release any resources used by the plot
+        self.on_update = None;
     }
 }

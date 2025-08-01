@@ -1,4 +1,6 @@
 // #![no_std]
+// Note: This example requires the simulator feature to be enabled.
+// Run with: cargo run --example main --features "std simulator"
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::*;
 use embedded_graphics_simulator::sdl2::Keycode;
@@ -14,8 +16,9 @@ use stm_graphics::status;
 use stm_graphics::utils;
 use stm_graphics::scene;
 use stm_graphics::scenes;
+use stm_graphics::state_machine;
+use stm_graphics::state_machine::examples;
 
-#[cfg(feature = "simulator")]
 fn main() -> Result<(), core::convert::Infallible> {
     let mut display: SimulatorDisplay<Rgb565> = SimulatorDisplay::new(Size::new(320, 240));
 
@@ -25,20 +28,19 @@ fn main() -> Result<(), core::convert::Infallible> {
     let mut battery_indicator = utils::battery::BatteryIndicator::new(0xAA);
 
     let mut scene_manager = unsafe { &mut scene::scene_manager::INSTANCE };
-    
 
-    scene_manager.add_scene(scenes::startup::build_startup());
-    scene_manager.add_scene(scenes::dive::build_dive());
-    
+    // Initialize the state machine with scenes
+    let mut state_machine = examples::initialize_state_machine(scene_manager);
 
     let mut wnd = Window::new("Dive computer", &output_settings);
     let _ = status_bar.draw(&mut display);
     let _ = battery_indicator.draw(&mut display);
     let mut quit = false;
 
-    let mut s = State::new();
+    // The state is now managed by the state machine
+    let s = state_machine.state_mut();
     s.battery = 0x00;
-    s.pressure = 10.22;
+    s.pressure = 0.22;
     s.temperature = 25.0;
 
     loop {
@@ -51,13 +53,20 @@ fn main() -> Result<(), core::convert::Infallible> {
         //     s.battery = 0xFF;
         // }
 
-        battery_indicator.set_level(s.battery);
+        // Get the current state from the state machine
+        let current_state = state_machine.state();
+
+        // Update the battery indicator with the current state
+        battery_indicator.set_level(current_state.battery);
         let _ = battery_indicator.draw(&mut display);
+
+        // Draw the active scene
         let _ = scene_manager.draw_active_scene(&mut display);
         wnd.update(&display);
 
+        // Update the state machine, which will handle state transitions
+        state_machine.update(scene_manager);
 
-        scene_manager.get_active_scene().unwrap().update(&s);
         wnd.events().for_each(|event| match event {
             SimulatorEvent::Quit => {
                 // defmt::info!("Quitting");
@@ -92,8 +101,33 @@ fn main() -> Result<(), core::convert::Infallible> {
 
                 Keycode::U => {
                     // defmt::info!("U key pressed");
+                    // Update pressure in the state machine's state
+                    let s = state_machine.state_mut();
                     s.pressure += 0.1;
-                    scene_manager.get_active_scene().unwrap().update(&s);
+                }
+
+                Keycode::H => {
+                    // Increase heading
+                    let s = state_machine.state_mut();
+                    s.heading = (s.heading + 10.0) % 360.0;
+                }
+
+                Keycode::J => {
+                    // Decrease heading
+                    let s = state_machine.state_mut();
+                    s.heading = (s.heading - 10.0 + 360.0) % 360.0;
+                }
+
+                Keycode::K => {
+                    // Increase set course
+                    let s = state_machine.state_mut();
+                    s.set_course = (s.set_course + 10.0) % 360.0;
+                }
+
+                Keycode::L => {
+                    // Decrease set course
+                    let s = state_machine.state_mut();
+                    s.set_course = (s.set_course - 10.0 + 360.0) % 360.0;
                 }
 
                 _ => {

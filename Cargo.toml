@@ -14,11 +14,16 @@ embedded-graphics-core = "0.4.0"
 libm = "0.2.11"
 static_cell = "2.1.0"
 embassy-sync = { path = "../embassy/embassy-sync", version = "0.6.1", features = ["defmt"] }
+dive-computer-deco = { path = "../dive-computer-deco" }
+dive-computer-proto = { path = "../dive-computer-proto" }
 
 embedded-graphics-simulator = {  version = "0.7.0", optional = true }
 
 [features]
-simulator = ["dep:embedded-graphics-simulator"]
+default = []
+simulator = ["embedded-graphics-simulator"]
+serde = []
+std = []
 
 
 [profile.release]

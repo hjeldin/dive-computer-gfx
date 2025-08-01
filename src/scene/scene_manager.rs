@@ -57,9 +57,21 @@ impl SceneManager {
     }
 
     /// Switch to a different scene by index.
+    /// Properly cleans up the previous scene and initializes the new one.
     pub fn switch_scene(&mut self, index: usize) {
         if index < self.scenes.len() {
+            // Clean up the current scene if there is one
+            if let Some(current_index) = self.current_scene_index {
+                if let Some(current_scene) = self.scenes.get_mut(current_index) {
+                    current_scene.cleanup();
+                }
+            }
+
+            // Set the new scene as active
             self.current_scene_index = Some(index);
+
+            // Initialize components in the new scene if needed
+            // This is already handled by Scene::add_component, but we could add additional initialization here
         } else {
             // defmt::error!("Invalid scene index: {}", index);
         }
@@ -83,5 +95,133 @@ impl SceneManager {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use embedded_graphics::mock_display::MockDisplay;
+    use crate::common::State;
+    use crate::components::button::Button;
+    use embedded_graphics::geometry::{Point, Size};
+
+    #[test]
+    fn test_scene_manager_new() {
+        let manager = SceneManager::new();
+        assert_eq!(manager.scenes.len(), 0);
+        assert_eq!(manager.current_scene_index, None);
+    }
+
+    #[test]
+    fn test_add_scene() {
+        let mut manager = SceneManager::new();
+        let scene = Scene::new();
+
+        manager.add_scene(scene);
+
+        assert_eq!(manager.scenes.len(), 1);
+        assert_eq!(manager.current_scene_index, Some(0)); // First scene should be active
+    }
+
+    #[test]
+    fn test_add_multiple_scenes() {
+        let mut manager = SceneManager::new();
+
+        // Add first scene
+        let scene1 = Scene::new();
+        manager.add_scene(scene1);
+
+        // Add second scene
+        let scene2 = Scene::new();
+        manager.add_scene(scene2);
+
+        assert_eq!(manager.scenes.len(), 2);
+        assert_eq!(manager.current_scene_index, Some(0)); // First scene should still be active
+    }
+
+    #[test]
+    fn test_switch_scene() {
+        let mut manager = SceneManager::new();
+
+        // Add two scenes
+        let scene1 = Scene::new();
+        let scene2 = Scene::new();
+        manager.add_scene(scene1);
+        manager.add_scene(scene2);
+
+        // Initially, the first scene should be active
+        assert_eq!(manager.current_scene_index, Some(0));
+
+        // Switch to the second scene
+        manager.switch_scene(1);
+        assert_eq!(manager.current_scene_index, Some(1));
+    }
+
+    #[test]
+    fn test_get_active_scene() {
+        let mut manager = SceneManager::new();
+
+        // Initially, there should be no active scene
+        assert!(manager.get_active_scene().is_none());
+
+        // Add a scene
+        let scene = Scene::new();
+        manager.add_scene(scene);
+
+        // Now there should be an active scene
+        assert!(manager.get_active_scene().is_some());
+    }
+
+    #[test]
+    fn test_draw_active_scene() {
+        let mut manager = SceneManager::new();
+        let mut scene = Scene::new();
+
+        // Add a button to the scene
+        let button = Button::new(
+            Point::new(0, 0),
+            Size::new(10, 10),
+            "Test Button",
+        );
+        scene.add_component(crate::common::Drawable::Button(button));
+
+        // Add the scene to the manager
+        manager.add_scene(scene);
+
+        // Draw the active scene
+        let mut display = MockDisplay::new();
+        let result = manager.draw_active_scene(&mut display);
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_update_active_scene() {
+        let mut manager = SceneManager::new();
+        let scene = Scene::new();
+
+        // Add the scene to the manager
+        manager.add_scene(scene);
+
+        // Update the active scene
+        manager.update_active_scene();
+
+        // No assertion needed, just verifying it doesn't panic
+    }
+
+    #[test]
+    fn test_switch_to_invalid_scene() {
+        let mut manager = SceneManager::new();
+        let scene = Scene::new();
+
+        // Add one scene
+        manager.add_scene(scene);
+
+        // Try to switch to a non-existent scene
+        manager.switch_scene(999);
+
+        // The active scene should not change
+        assert_eq!(manager.current_scene_index, Some(0));
     }
 }

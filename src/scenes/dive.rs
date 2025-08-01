@@ -7,8 +7,8 @@ use embedded_graphics::{
 use profont::{PROFONT_18_POINT, PROFONT_9_POINT};
 
 use crate::{
-    common::State,
-    components::{label::Label, plot::Plot},
+    common::{State, Toggleable},
+    components::{compass::Compass, label::Label, plot::Plot},
     scene,
     utils::background::Background,
 };
@@ -161,6 +161,16 @@ pub fn build_dive() -> scene::Scene {
         MonoTextStyle::new(&PROFONT_9_POINT, Rgb565::WHITE),
     );
 
+    // Create compass component at the top of the page
+    let mut compass = Compass::new(
+        Point::new(160, 35),  // Center position at the top
+        Size::new(80, 80),    // Slightly smaller size to fit at the top
+        MonoTextStyle::new(&PROFONT_9_POINT, Rgb565::WHITE),
+    );
+
+    // Set up compass to be toggleable
+    compass.toggle(false);
+
     scene.add_component(crate::common::Drawable::Background(background));
     scene.add_component(crate::common::Drawable::Background(header));
     scene.add_component(crate::common::Drawable::Label(depth_lbl));
@@ -181,6 +191,9 @@ pub fn build_dive() -> scene::Scene {
     scene.add_component(crate::common::Drawable::Label(asc_rate_val));
 
     scene.add_component(crate::common::Drawable::Plot(depth_plot));
+
+    // Add compass component to the scene
+    scene.add_component(crate::common::Drawable::Compass(compass));
 
     scene.set_toggle_index(Some(0));
 

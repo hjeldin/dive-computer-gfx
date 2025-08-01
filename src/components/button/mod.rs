@@ -98,14 +98,28 @@ impl Toggleable for Button {
 }
 
 impl DrawableComponent for Button {
+    fn initialize(&mut self) {
+        // Initialize any resources needed by the button
+        self.needs_redraw = true; // Mark for initial draw
+    }
+
     fn draw<D: DrawTarget<Color = Rgb565>>(&mut self, target: &mut D) -> Result<(), D::Error> {
         self.draw(target)
     }
+
     fn update(&mut self, state: &State) {
-        // todo!()
+        // Update button state based on the current application state
+        // Currently empty, but could be implemented for dynamic buttons
     }
-    fn setNeedsRedraw(&mut self, needs_redraw: bool) {
+
+    fn set_needs_redraw(&mut self, needs_redraw: bool) {
         self.needs_redraw = needs_redraw;
+    }
+
+    fn cleanup(&mut self) {
+        // Release any resources used by the button
+        // For Button, we might want to clear callbacks
+        self.on_click = None;
     }
 }
 
@@ -116,4 +130,3 @@ impl Clickable for Button {
         }
     }
 }
-
