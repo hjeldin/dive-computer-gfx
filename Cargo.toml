@@ -1,7 +1,7 @@
 [package]
 name = "stm-graphics"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 embedded-graphics = "0.8.1"
@@ -13,8 +13,8 @@ embedded-plots = { path = "../embedded-plots" }
 embedded-graphics-core = "0.4.0"
 libm = "0.2.11"
 static_cell = "2.1.0"
-embassy-sync = { path = "../embassy/embassy-sync", version = "0.6.1", features = ["defmt"] }
-dive-computer-deco = { path = "../dive-computer-deco" }
+embassy-sync = { path = "../embassy/embassy-sync", features = ["defmt"] }
+#dive-computer-deco = { path = "../dive-computer-deco" }
 dive-computer-proto = { path = "../dive-computer-proto" }
 
 embedded-graphics-simulator = {  version = "0.7.0", optional = true }
@@ -25,6 +25,12 @@ simulator = ["embedded-graphics-simulator"]
 serde = []
 std = []
 
+
+# sdl2 0.37 transmutes raw SDL event types into an enum (src/sdl2/event.rs:336).
+# Event types it does not know (e.g. 0x207) are an invalid enum value, and the
+# nightly toolchain's debug UB checks abort on it. Skip those checks in sdl2 only.
+[profile.dev.package.sdl2]
+debug-assertions = false
 
 [profile.release]
 opt-level = 3

@@ -65,6 +65,8 @@
             RUST_SRC_PATH = "${pkgs.rustToolchain}/lib/rustlib/src/rust/library";
 #            LIBCLANG_PATH = "${pkgs.libclang}/lib";
             LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib";
+            # Read by build.rs to link the simulator against SDL2
+            SDL2_LIB_DIR = "${pkgs.SDL2}/lib";
           };
         };
       });

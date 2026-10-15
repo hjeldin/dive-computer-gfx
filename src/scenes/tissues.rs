@@ -2,7 +2,6 @@ use embedded_graphics::prelude::{Point, Size};
 
 use crate::{components::button::Button, scene, utils::background::Background};
 
-use core::option::Option::Some;
 use core::option::Option::None;
 
 pub fn build_tissues() -> scene::Scene {
@@ -16,7 +15,7 @@ pub fn build_tissues() -> scene::Scene {
 
     scene.add_component(crate::common::Drawable::Background(background));
     scene.add_component(crate::common::Drawable::Button(btn_new_dive));
-    scene.set_toggle_index(Some(0));
+    scene.select_next_toggleable();
 
     scene
 }

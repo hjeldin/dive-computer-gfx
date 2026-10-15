@@ -1,8 +1,7 @@
 use embedded_graphics::prelude::{Point, Size};
 
-use crate::{components::button::Button, scene::{self}, utils::background::Background};
+use crate::{common::Action, components::button::Button, scene::{self}, state_machine::states::DIVE_SCENE, utils::background::Background};
 
-use core::option::Option::Some;
 use core::option::Option::None;
 
 pub fn build_startup() -> scene::Scene {
@@ -15,13 +14,9 @@ pub fn build_startup() -> scene::Scene {
         Size::new(100, 32),
         "New dive",
     );
-    btn_new_dive.set_on_click(|button: &mut Button| {
-        // let s = crate::scene_manager::SceneManager::instance();
-        let scene_manager = unsafe { &mut scene::scene_manager::INSTANCE };
-        scene_manager.switch_scene(1);
-    });
+    btn_new_dive.set_on_click(|_button: &mut Button| Action::SwitchScene(DIVE_SCENE));
 
-    let mut btn_settings = Button::new(
+    let btn_settings = Button::new(
         Point::new(320 - 80 - 52 - 25, (240 - 32) / 2),
         Size::new(100, 32),
         "Settings",
@@ -29,7 +24,7 @@ pub fn build_startup() -> scene::Scene {
     scene.add_component(crate::common::Drawable::Background(background));
     scene.add_component(crate::common::Drawable::Button(btn_new_dive));
     scene.add_component(crate::common::Drawable::Button(btn_settings));
-    scene.set_toggle_index(Some(0));
+    scene.select_next_toggleable();
 
     scene
 }

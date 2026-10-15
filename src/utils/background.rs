@@ -66,8 +66,12 @@ impl DrawableComponent for Background {
         self.draw(target)
     }
 
-    fn update(&mut self, state: &crate::common::State) {
+    fn update(&mut self, _state: &crate::common::State) {
         // Background doesn't need to update based on state
+    }
+
+    fn needs_redraw(&self) -> bool {
+        self.needs_redraw
     }
 
     fn set_needs_redraw(&mut self, needs_redraw: bool) {

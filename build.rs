@@ -1,11 +1,12 @@
 #[cfg(feature = "simulator")]
 fn main() {
-    // Tell cargo to tell rustc to link the system shared library
-    // named `libfoo`.
-    println!("cargo:rustc-link-search=native=/nix/store/6a4s1c1d3xcl0i9lacj23ziz8l27zn5b-SDL2-2.30.6/lib");
+    // Let the linker find SDL2 when it is not on the default search path.
+    // The Nix dev shell sets SDL2_LIB_DIR; other setups can set it or rely on system paths.
+    println!("cargo:rerun-if-env-changed=SDL2_LIB_DIR");
+    if let Ok(dir) = std::env::var("SDL2_LIB_DIR") {
+        println!("cargo:rustc-link-search=native={dir}");
+    }
 }
 
 #[cfg(not(feature = "simulator"))]
-fn main() {
-    
-}
+fn main() {}

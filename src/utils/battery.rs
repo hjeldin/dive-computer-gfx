@@ -21,9 +21,9 @@ impl BatteryIndicator {
         Self { level }
     }
 
-    fn hex_to_percentage(&self, hex_value: u8) -> u8 {
-        // Scale the value from 0-255 to 0-100
-        ((hex_value as u32 * 100) / 255) as u8
+    /// Battery level scaled from 0-255 to 0-100.
+    fn percentage(&self) -> u8 {
+        ((self.level as u32 * 100) / 255) as u8
     }
     
     pub fn set_level(&mut self, level: u8) {
@@ -31,7 +31,7 @@ impl BatteryIndicator {
     }
 
     pub fn draw<D: DrawTarget<Color = Rgb565>>(&mut self, target: &mut D) -> Result<(), D::Error> {
-        let percentage = self.hex_to_percentage(self.level);
+        let percentage = self.percentage();
 
         let rectangle = RoundedRectangle::new(
             Rectangle::new(Point::zero(), Size::new(36, 16)),

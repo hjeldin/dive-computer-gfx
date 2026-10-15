@@ -72,9 +72,16 @@ impl DrawableComponent for StatusBar {
 
     fn update(&mut self, state: &crate::common::State) {
         // Update time from state if needed
-        self.time_hours = state.datetime.time.hours;
-        self.time_minutes = state.datetime.time.minutes;
-        self.needs_redraw = true;
+        let (hours, minutes) = (state.datetime.time.hours, state.datetime.time.minutes);
+        if (hours, minutes) != (self.time_hours, self.time_minutes) {
+            self.time_hours = hours;
+            self.time_minutes = minutes;
+            self.needs_redraw = true;
+        }
+    }
+
+    fn needs_redraw(&self) -> bool {
+        self.needs_redraw
     }
 
     fn set_needs_redraw(&mut self, needs_redraw: bool) {

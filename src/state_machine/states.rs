@@ -1,8 +1,15 @@
-//! Example implementations of the AppState trait for different scenes
+//! Application states and the transitions between them
 
 use crate::common::State;
 use crate::scenes::{startup, dive, tissues};
 use crate::state_machine::{AppState, StateNode, Transition, ApplicationState};
+
+/// Scene index of the startup scene in the scene manager
+pub const STARTUP_SCENE: usize = 0;
+/// Scene index of the dive scene in the scene manager
+pub const DIVE_SCENE: usize = 1;
+/// Scene index of the tissues scene in the scene manager
+pub const TISSUES_SCENE: usize = 2;
 
 /// State for the startup screen
 #[derive(Clone)]
@@ -45,12 +52,40 @@ impl AppState for StartupState {
 pub struct DiveState {
     /// The scene index for the dive scene
     scene_index: usize,
+    /// Uptime when the dive started, in milliseconds
+    started_ms: u32,
 }
 
 impl DiveState {
     /// Create a new dive state
     pub fn new(scene_index: usize) -> Self {
-        Self { scene_index }
+        Self { scene_index, started_ms: 0 }
+    }
+}
+
+/// Depth in metres of a simulated dive `dive_time_ms` into it, starting at 10 m:
+/// descent at 18 m/min to 25 m, bottom time until 3 min, ascent at 9 m/min to a
+/// 3 min stop at 5 m, then ascent at 9 m/min to the surface.
+pub fn simulated_depth(dive_time_ms: u32) -> f32 {
+    const BOTTOM: f32 = 25.0;
+    const BOTTOM_END_MIN: f32 = 3.0;
+    const STOP: f32 = 5.0;
+    const STOP_MIN: f32 = 3.0;
+    const DESCENT_RATE: f32 = 18.0;
+    const ASCENT_RATE: f32 = 9.0;
+
+    let minutes = dive_time_ms as f32 / 60_000.0;
+    let stop_start = BOTTOM_END_MIN + (BOTTOM - STOP) / ASCENT_RATE;
+    let stop_end = stop_start + STOP_MIN;
+
+    if minutes < BOTTOM_END_MIN {
+        (10.0 + DESCENT_RATE * minutes).min(BOTTOM)
+    } else if minutes < stop_start {
+        BOTTOM - ASCENT_RATE * (minutes - BOTTOM_END_MIN)
+    } else if minutes < stop_end {
+        STOP
+    } else {
+        (STOP - ASCENT_RATE * (minutes - stop_end)).max(0.0)
     }
 }
 
@@ -60,19 +95,15 @@ impl AppState for DiveState {
         // This could include setting initial values in the state
         defmt::info!("Entering dive state");
 
-        // Example: Set initial pressure for dive
-        state.pressure = 10.0;
+        self.started_ms = state.uptime_ms;
+        state.dive_time_ms = 0;
+        state.pressure = simulated_depth(0);
     }
 
     fn update(&mut self, state: &mut State) {
-        // Update the dive state
-        // This could include updating depth, NDT, etc. based on sensor data
-
-        // Example: Simulate pressure changes
-        state.pressure += 0.1;
-        if state.pressure > 30.0 {
-            state.pressure = 10.0;
-        }
+        state.dive_time_ms = state.uptime_ms.wrapping_sub(self.started_ms);
+        // Stand-in for sensor data until a depth sensor is wired in
+        state.pressure = simulated_depth(state.dive_time_ms);
     }
 
     fn exit(&mut self, _state: &mut State) {
@@ -121,48 +152,48 @@ impl AppState for TissuesState {
 }
 
 /// Create a state node for the startup state with transitions to other states
-pub fn create_startup_state(scene_index: usize) -> StateNode<ApplicationState, ApplicationState> {
-    let state = ApplicationState::Startup(StartupState::new(scene_index));
+pub fn create_startup_state() -> StateNode<ApplicationState, ApplicationState> {
+    let state = ApplicationState::Startup(StartupState::new(STARTUP_SCENE));
     let mut node = StateNode::new(state);
 
     // Add transition to dive state when pressure exceeds 5.0
     node.add_transition(Transition::new(
         |state| state.pressure > 5.0,
-        || ApplicationState::Dive(DiveState::new(1)), // Assuming dive scene is at index 1
+        || ApplicationState::Dive(DiveState::new(DIVE_SCENE)),
     ));
 
     node
 }
 
 /// Create a state node for the dive state with transitions to other states
-pub fn create_dive_state(scene_index: usize) -> StateNode<ApplicationState, ApplicationState> {
-    let state = ApplicationState::Dive(DiveState::new(scene_index));
+pub fn create_dive_state() -> StateNode<ApplicationState, ApplicationState> {
+    let state = ApplicationState::Dive(DiveState::new(DIVE_SCENE));
     let mut node = StateNode::new(state);
 
     // Add transition to tissues state when temperature exceeds 25.0
     node.add_transition(Transition::new(
         |state| state.temperature > 25.0,
-        || ApplicationState::Tissues(TissuesState::new(2)), // Assuming tissues scene is at index 2
+        || ApplicationState::Tissues(TissuesState::new(TISSUES_SCENE)),
     ));
 
     // Add transition back to startup state when pressure is below 2.0
     node.add_transition(Transition::new(
         |state| state.pressure < 2.0,
-        || ApplicationState::Startup(StartupState::new(0)), // Assuming startup scene is at index 0
+        || ApplicationState::Startup(StartupState::new(STARTUP_SCENE)),
     ));
 
     node
 }
 
 /// Create a state node for the tissues state with transitions to other states
-pub fn create_tissues_state(scene_index: usize) -> StateNode<ApplicationState, ApplicationState> {
-    let state = ApplicationState::Tissues(TissuesState::new(scene_index));
+pub fn create_tissues_state() -> StateNode<ApplicationState, ApplicationState> {
+    let state = ApplicationState::Tissues(TissuesState::new(TISSUES_SCENE));
     let mut node = StateNode::new(state);
 
     // Add transition back to dive state when battery is below 50%
     node.add_transition(Transition::new(
         |state| state.battery < 128,
-        || ApplicationState::Dive(DiveState::new(1)), // Assuming dive scene is at index 1
+        || ApplicationState::Dive(DiveState::new(DIVE_SCENE)),
     ));
 
     node
@@ -175,7 +206,7 @@ pub fn initialize_state_machine(scene_manager: &mut crate::scene::scene_manager:
     let dive_scene = dive::build_dive();
     let tissues_scene = tissues::build_tissues();
 
-    // Add scenes to scene manager
+    // Add scenes to scene manager, in the order the scene index constants expect
     scene_manager.add_scene(startup_scene);
     scene_manager.add_scene(dive_scene);
     scene_manager.add_scene(tissues_scene);
@@ -184,9 +215,24 @@ pub fn initialize_state_machine(scene_manager: &mut crate::scene::scene_manager:
     let mut state_machine = crate::state_machine::StateMachine::new();
 
     // Add states to state machine
-    state_machine.add_state(create_startup_state(0));
-    state_machine.add_state(create_dive_state(1));
-    state_machine.add_state(create_tissues_state(2));
+    state_machine.add_state(create_startup_state());
+    state_machine.add_state(create_dive_state());
+    state_machine.add_state(create_tissues_state());
 
     state_machine
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_simulated_dive_profile() {
+        let at = |minutes: f32| simulated_depth((minutes * 60_000.0) as u32);
+        assert_eq!(at(0.0), 10.0);
+        assert_eq!(at(2.0), 25.0);
+        assert_eq!(at(4.0), 16.0);
+        assert_eq!(at(6.0), 5.0);
+        assert_eq!(at(20.0), 0.0);
+    }
 }

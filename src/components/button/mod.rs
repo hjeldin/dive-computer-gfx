@@ -9,7 +9,7 @@ use embedded_graphics::{
 use embedded_graphics::geometry::Size;
 use profont::PROFONT_9_POINT;
 
-use crate::common::{Clickable, DrawableComponent, State, Toggleable};
+use crate::common::{copy_truncated, Action, Clickable, DrawableComponent, State, Toggleable};
 use heapless::String;
 use core::result::Result;
 use core::result::Result::Ok;
@@ -22,7 +22,7 @@ pub struct Button {
     pub size: Size,
     pub label: String<MAX_LABEL_LENGTH>,
     pub is_selected: bool,
-    pub on_click: Option<fn(&mut Self)>,
+    pub on_click: Option<fn(&mut Self) -> Action>,
     pub needs_redraw: bool,
 }
 
@@ -30,7 +30,7 @@ impl Button {
     /// Creates a new `Button` instance.
     pub fn new(position: Point, size: Size, label: &str) -> Self {
         let mut label_str: String<MAX_LABEL_LENGTH> = String::new();
-        label_str.push_str(label).unwrap();
+        copy_truncated(&mut label_str, label);
         Self {
             position,
             size,
@@ -41,7 +41,7 @@ impl Button {
         }
     }
 
-    pub fn set_on_click(&mut self, callback: fn(&mut Self)) {
+    pub fn set_on_click(&mut self, callback: fn(&mut Self) -> Action) {
         self.on_click = Some(callback);
     }
 
@@ -89,7 +89,10 @@ impl Button {
 /// Implement `Toggleable` for `Button`.
 impl Toggleable for Button {
     fn toggle(&mut self, state: bool) {
-        self.is_selected = state;
+        if self.is_selected != state {
+            self.is_selected = state;
+            self.needs_redraw = true;
+        }
     }
 
     fn is_toggled(&self) -> bool {
@@ -107,9 +110,13 @@ impl DrawableComponent for Button {
         self.draw(target)
     }
 
-    fn update(&mut self, state: &State) {
+    fn update(&mut self, _state: &State) {
         // Update button state based on the current application state
         // Currently empty, but could be implemented for dynamic buttons
+    }
+
+    fn needs_redraw(&self) -> bool {
+        self.needs_redraw
     }
 
     fn set_needs_redraw(&mut self, needs_redraw: bool) {
@@ -124,9 +131,10 @@ impl DrawableComponent for Button {
 }
 
 impl Clickable for Button {
-    fn click(&mut self) {
-        if let Some(callback) = self.on_click {
-            callback(self);
+    fn click(&mut self) -> Action {
+        match self.on_click {
+            Some(callback) => callback(self),
+            None => Action::None,
         }
     }
 }
