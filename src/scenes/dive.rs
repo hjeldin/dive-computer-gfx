@@ -7,7 +7,7 @@ use embedded_graphics::{
 use profont::{PROFONT_18_POINT, PROFONT_7_POINT, PROFONT_9_POINT};
 
 use crate::{
-    common::{Drawable, State},
+    common::{DecoDisplay, Drawable, State},
     components::{compass::Compass, depth_profile::DepthProfile, label::Label},
     scene,
     utils::background::Background,
@@ -15,7 +15,7 @@ use crate::{
 use core::format_args;
 use core::option::Option::Some;
 use core::option::Option::None;
-use libm::ceil;
+use libm::roundf;
 
 /// Width of one cell in the data table.
 const CELL_WIDTH: i32 = 99;
@@ -25,16 +25,22 @@ const ROW_HEIGHT: i32 = 37;
 const CONTENT_TOP: i32 = 16;
 const TITLE_BAR_HEIGHT: u32 = 13;
 
-/// Data table cells as (title, update), laid out in two columns, left to right then down.
-/// NDT, ceiling and ascent rate have no data source yet: they show
-/// placeholder values derived from pressure until the deco model is wired in.
-const CELLS: [(&str, fn(&mut Label, &State)); 6] = [
-    ("Depth", show_metres),
-    ("NDT", show_minutes),
-    ("Max Depth", show_metres),
-    ("Runtime", show_runtime),
-    ("Ceiling", show_minutes),
-    ("Asc Rate", show_minutes),
+/// One cell of the data table: a title bar and a value below it.
+struct Cell {
+    title: &'static str,
+    /// Changes the title with the state, for cells whose meaning changes.
+    title_update: Option<fn(&mut Label, &State)>,
+    value: fn(&mut Label, &State),
+}
+
+/// Data table cells, laid out in two columns, left to right then down.
+const CELLS: [Cell; 6] = [
+    Cell { title: "Depth", title_update: None, value: show_depth },
+    Cell { title: "NDL", title_update: Some(show_deco_title), value: show_deco },
+    Cell { title: "Max Depth", title_update: None, value: show_max_depth },
+    Cell { title: "Runtime", title_update: None, value: show_runtime },
+    Cell { title: "TTS", title_update: None, value: show_tts },
+    Cell { title: "Asc Rate", title_update: None, value: show_ascent_rate },
 ];
 
 pub fn build_dive() -> scene::Scene {
@@ -51,7 +57,7 @@ pub fn build_dive() -> scene::Scene {
     let title_style = MonoTextStyle::new(&PROFONT_9_POINT, Rgb565::WHITE);
     let value_style = MonoTextStyle::new(&PROFONT_18_POINT, Rgb565::GREEN);
 
-    for (index, (title, show)) in CELLS.iter().enumerate() {
+    for (index, cell) in CELLS.iter().enumerate() {
         let x = (index as i32 % 2) * CELL_WIDTH;
         let top = CONTENT_TOP + 2 + (index as i32 / 2) * ROW_HEIGHT;
 
@@ -61,12 +67,18 @@ pub fn build_dive() -> scene::Scene {
             Size::new(CELL_WIDTH as u32 - 1, TITLE_BAR_HEIGHT),
             Some(title_bar_style),
         )));
-        scene.add_component(Drawable::Label(Label::new(
+        // A background colour lets a changed title erase the old one
+        let mut title = Label::new(
             Point::new(x, top),
             Size::new(CELL_WIDTH as u32, 20),
-            title,
+            cell.title,
             title_style,
-        )));
+        )
+        .with_background(Rgb565::CSS_DIM_GRAY);
+        if let Some(update) = cell.title_update {
+            title.set_on_update(update);
+        }
+        scene.add_component(Drawable::Label(title));
         let mut value = Label::new(
             Point::new(x, top + 21),
             Size::new(CELL_WIDTH as u32, 24),
@@ -74,7 +86,7 @@ pub fn build_dive() -> scene::Scene {
             value_style,
         )
         .with_background(Rgb565::BLACK);
-        value.set_on_update(*show);
+        value.set_on_update(cell.value);
         scene.add_component(Drawable::Label(value));
     }
 
@@ -97,8 +109,43 @@ pub fn build_dive() -> scene::Scene {
     scene
 }
 
-fn show_metres(label: &mut Label, state: &State) {
-    label.set_label_fmt(format_args!("{:.1}m", state.depth_m()));
+fn show_depth(label: &mut Label, state: &State) {
+    label.set_label_fmt(format_args!("{:.1}m", state.depth_m));
+}
+
+fn show_max_depth(label: &mut Label, state: &State) {
+    label.set_label_fmt(format_args!("{:.1}m", state.max_depth_m));
+}
+
+fn show_deco_title(label: &mut Label, state: &State) {
+    match state.deco {
+        DecoDisplay::Stop { .. } => label.set_label_text("Stop"),
+        _ => label.set_label_text("NDL"),
+    }
+}
+
+fn show_deco(label: &mut Label, state: &State) {
+    match state.deco {
+        DecoDisplay::Unknown => label.set_label_text("---"),
+        DecoDisplay::Ndl(minutes) => label.set_label_fmt(format_args!("{}min", minutes)),
+        DecoDisplay::NdlOver99 => label.set_label_text(">99"),
+        DecoDisplay::Stop { depth_m, minutes } => {
+            label.set_label_fmt(format_args!("{}m {}min", depth_m, minutes))
+        }
+    }
+}
+
+fn show_tts(label: &mut Label, state: &State) {
+    match state.tts_min {
+        Some(minutes) => label.set_label_fmt(format_args!("{}min", minutes)),
+        None => label.set_label_text("---"),
+    }
+}
+
+fn show_ascent_rate(label: &mut Label, state: &State) {
+    // Whole metres; a rounded -0.0 converts to 0
+    let rate = roundf(state.ascent_rate_m_min) as i32;
+    label.set_label_fmt(format_args!("{}m/min", rate));
 }
 
 fn show_runtime(label: &mut Label, state: &State) {
@@ -106,6 +153,69 @@ fn show_runtime(label: &mut Label, state: &State) {
     label.set_label_fmt(format_args!("{}:{:02}", seconds / 60, seconds % 60));
 }
 
-fn show_minutes(label: &mut Label, state: &State) {
-    label.set_label_fmt(format_args!("{}min", ceil(state.pressure as f64) as u32));
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn label() -> Label {
+        Label::new(Point::new(0, 0), Size::new(99, 24), "", MonoTextStyle::new(&PROFONT_18_POINT, Rgb565::GREEN))
+    }
+
+    fn assert_shown(update: fn(&mut Label, &State), state: &State, expected: &str) {
+        let mut label = label();
+        update(&mut label, state);
+        assert_eq!(label.text(), expected);
+    }
+
+    #[test]
+    fn depth_and_max_depth() {
+        let mut state = State::new();
+        state.depth_m = 12.44;
+        state.max_depth_m = 18.24;
+        assert_shown(show_depth, &state, "12.4m");
+        assert_shown(show_max_depth, &state, "18.2m");
+    }
+
+    #[test]
+    fn deco_cell_and_title() {
+        let mut state = State::new();
+        let cases = [
+            (DecoDisplay::Unknown, "NDL", "---"),
+            (DecoDisplay::Ndl(34), "NDL", "34min"),
+            (DecoDisplay::NdlOver99, "NDL", ">99"),
+            (DecoDisplay::Stop { depth_m: 6, minutes: 3 }, "Stop", "6m 3min"),
+        ];
+        for (deco, title, value) in cases {
+            state.deco = deco;
+            assert_shown(show_deco_title, &state, title);
+            assert_shown(show_deco, &state, value);
+        }
+    }
+
+    #[test]
+    fn tts_and_ascent_rate() {
+        let mut state = State::new();
+        assert_shown(show_tts, &state, "---");
+        state.tts_min = Some(12);
+        assert_shown(show_tts, &state, "12min");
+        state.ascent_rate_m_min = 9.4;
+        assert_shown(show_ascent_rate, &state, "9m/min");
+        state.ascent_rate_m_min = -0.3;
+        assert_shown(show_ascent_rate, &state, "0m/min");
+        state.ascent_rate_m_min = -18.0;
+        assert_shown(show_ascent_rate, &state, "-18m/min");
+    }
+
+    #[test]
+    fn runtime() {
+        let mut state = State::new();
+        state.dive_time_ms = (23 * 60 + 41) * 1000;
+        assert_shown(show_runtime, &state, "23:41");
+    }
+
+    #[test]
+    fn table_titles() {
+        let titles: [&str; 6] = CELLS.map(|cell| cell.title);
+        assert_eq!(titles, ["Depth", "NDL", "Max Depth", "Runtime", "TTS", "Asc Rate"]);
+    }
 }

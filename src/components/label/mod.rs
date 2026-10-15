@@ -88,6 +88,11 @@ impl Label {
         }
     }
 
+    /// The text currently shown.
+    pub fn text(&self) -> &str {
+        &self.label
+    }
+
     /// Draws the label on the given draw target.
     pub fn draw<D: DrawTarget<Color = Rgb565>>(
         &mut self,

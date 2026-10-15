@@ -205,6 +205,15 @@ pub struct DateTime {
     pub time: Time,
 }
 
+/// What the NDL cell of the dive table shows.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DecoDisplay {
+    Unknown,
+    Ndl(u8),
+    NdlOver99,
+    Stop { depth_m: u8, minutes: u16 },
+}
+
 pub struct State {
     pub pressure: f32,
     pub temperature: f32,
@@ -216,6 +225,14 @@ pub struct State {
     pub dive_time_ms: u32,
     pub heading: f32,      // Current heading in degrees (0-359)
     pub set_course: Option<f32>,   // Set course in degrees (0-359), None when unset
+    /// Depth below the surface in metres.
+    pub depth_m: f32,
+    pub max_depth_m: f32,
+    /// Positive when ascending.
+    pub ascent_rate_m_min: f32,
+    pub deco: DecoDisplay,
+    /// Time to surface in minutes, `None` when unknown.
+    pub tts_min: Option<u16>,
 }
 
 impl State {
@@ -232,12 +249,26 @@ impl State {
             dive_time_ms: 0,
             heading: 0.0,
             set_course: None,
+            depth_m: 0.0,
+            max_depth_m: 0.0,
+            ascent_rate_m_min: 0.0,
+            deco: DecoDisplay::Unknown,
+            tts_min: None,
         }
     }
+}
 
-    /// Current depth in metres.
-    /// `pressure` already holds depth in metres until real pressure conversion is added.
-    pub fn depth_m(&self) -> f32 {
-        self.pressure
+#[cfg(test)]
+mod state_tests {
+    use super::*;
+
+    #[test]
+    fn new_state_has_no_dive_data() {
+        let state = State::new();
+        assert_eq!(state.depth_m, 0.0);
+        assert_eq!(state.max_depth_m, 0.0);
+        assert_eq!(state.ascent_rate_m_min, 0.0);
+        assert_eq!(state.deco, DecoDisplay::Unknown);
+        assert_eq!(state.tts_min, None);
     }
 }

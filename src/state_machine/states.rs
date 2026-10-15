@@ -97,13 +97,13 @@ impl AppState for DiveState {
 
         self.started_ms = state.uptime_ms;
         state.dive_time_ms = 0;
-        state.pressure = simulated_depth(0);
+        state.depth_m = simulated_depth(0);
     }
 
     fn update(&mut self, state: &mut State) {
         state.dive_time_ms = state.uptime_ms.wrapping_sub(self.started_ms);
         // Stand-in for sensor data until a depth sensor is wired in
-        state.pressure = simulated_depth(state.dive_time_ms);
+        state.depth_m = simulated_depth(state.dive_time_ms);
     }
 
     fn exit(&mut self, _state: &mut State) {
@@ -156,9 +156,9 @@ pub fn create_startup_state() -> StateNode<ApplicationState, ApplicationState> {
     let state = ApplicationState::Startup(StartupState::new(STARTUP_SCENE));
     let mut node = StateNode::new(state);
 
-    // Add transition to dive state when pressure exceeds 5.0
+    // Add transition to dive state below 5 m
     node.add_transition(Transition::new(
-        |state| state.pressure > 5.0,
+        |state| state.depth_m > 5.0,
         || ApplicationState::Dive(DiveState::new(DIVE_SCENE)),
     ));
 
@@ -176,9 +176,9 @@ pub fn create_dive_state() -> StateNode<ApplicationState, ApplicationState> {
         || ApplicationState::Tissues(TissuesState::new(TISSUES_SCENE)),
     ));
 
-    // Add transition back to startup state when pressure is below 2.0
+    // Add transition back to startup state above 2 m
     node.add_transition(Transition::new(
-        |state| state.pressure < 2.0,
+        |state| state.depth_m < 2.0,
         || ApplicationState::Startup(StartupState::new(STARTUP_SCENE)),
     ));
 

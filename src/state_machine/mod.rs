@@ -261,8 +261,8 @@ mod tests {
     fn test_round_trip_keeps_transitions() {
         let (mut state_machine, mut scene_manager) = setup();
 
-        // Startup -> Dive on pressure
-        state_machine.state_mut().pressure = 6.0;
+        // Startup -> Dive on depth
+        state_machine.state_mut().depth_m = 6.0;
         state_machine.update(&mut scene_manager);
         assert_eq!(state_machine.current_scene_index(), Some(states::DIVE_SCENE));
         assert_eq!(scene_manager.active_scene_index(), Some(states::DIVE_SCENE));
@@ -274,7 +274,7 @@ mod tests {
         assert_eq!(state_machine.current_scene_index(), Some(states::STARTUP_SCENE));
 
         // Startup still has its transition after leaving and coming back
-        state_machine.state_mut().pressure = 6.0;
+        state_machine.state_mut().depth_m = 6.0;
         state_machine.update(&mut scene_manager);
         assert_eq!(state_machine.current_scene_index(), Some(states::DIVE_SCENE));
     }

@@ -257,7 +257,7 @@ impl DrawableComponent for DepthProfile {
     }
 
     fn update(&mut self, state: &State) {
-        self.record(state.dive_time_ms, state.depth_m());
+        self.record(state.dive_time_ms, state.depth_m);
     }
 
     fn needs_redraw(&self) -> bool {
