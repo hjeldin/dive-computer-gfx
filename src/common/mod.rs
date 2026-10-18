@@ -6,6 +6,9 @@ use embedded_graphics::{
 use crate::components::button::Button;
 use core::result::Result;
 
+mod settings;
+pub use settings::*;
+
 /// A trait for components that can be toggled.
 pub trait Toggleable {
     /// Toggles the current state of the component.
@@ -44,26 +47,63 @@ pub trait DrawableComponent {
 /// An enum is used instead of trait objects: `DrawableComponent::draw` is generic over
 /// the draw target, so the trait is not object-safe, and `no_std` without an allocator
 /// has no `Box<dyn _>` to store heterogeneous components in.
+///
+/// Every scene reserves room for `MAX_COMPONENTS` of these, so the largest variant sets the
+/// size of all of them. The depth profile is far larger than the rest, so it lives outside
+/// the scene and the variant holds a reference to it.
 pub enum Drawable {
     Background(crate::utils::background::Background),
     Button(Button),
     Compass(crate::components::compass::Compass),
     Label(crate::components::label::Label),
-    DepthProfile(crate::components::depth_profile::DepthProfile),
+    DepthProfile(&'static mut crate::components::depth_profile::DepthProfile),
+    ValueField(crate::components::value_field::ValueField),
+    Dropdown(crate::components::dropdown::Dropdown),
 }
 
 impl Drawable {
     /// Returns true if the component can receive the selection highlight.
     pub fn is_selectable(&self) -> bool {
-        matches!(self, Drawable::Button(_) | Drawable::Compass(_))
+        matches!(
+            self,
+            Drawable::Button(_) | Drawable::Compass(_) | Drawable::ValueField(_) | Drawable::Dropdown(_)
+        )
     }
 
     /// Clicks the component, returning the action it requests.
     pub fn click(&mut self) -> Action {
         match self {
             Drawable::Button(button) => button.click(),
+            Drawable::ValueField(field) => field.click(),
+            Drawable::Dropdown(dropdown) => dropdown.click(),
             _ => Action::None,
         }
+    }
+
+    /// Returns true while the component takes the next and previous inputs
+    /// to change its value, instead of moving the selection.
+    pub fn is_editing(&self) -> bool {
+        match self {
+            Drawable::ValueField(field) => field.is_editing(),
+            Drawable::Dropdown(dropdown) => dropdown.is_open(),
+            _ => false,
+        }
+    }
+
+    /// Steps the value of a component that is editing to the next one,
+    /// returning the action it requests.
+    pub fn edit_step(&mut self) -> Action {
+        match self {
+            Drawable::ValueField(field) => field.step(),
+            Drawable::Dropdown(dropdown) => dropdown.step(),
+            _ => Action::None,
+        }
+    }
+
+    /// Returns true if editing the component draws over other components,
+    /// so the scene must redraw when the edit ends.
+    pub fn edit_covers_others(&self) -> bool {
+        matches!(self, Drawable::Dropdown(_))
     }
 }
 
@@ -75,6 +115,8 @@ impl Toggleable for Drawable {
             Drawable::Compass(compass) => compass.toggle(state),
             Drawable::Label(_) => {}
             Drawable::DepthProfile(_) => {}
+            Drawable::ValueField(field) => field.toggle(state),
+            Drawable::Dropdown(dropdown) => dropdown.toggle(state),
         }
     }
 
@@ -85,6 +127,8 @@ impl Toggleable for Drawable {
             Drawable::Background(_) => false,
             Drawable::Label(_) => false,
             Drawable::DepthProfile(_) => false,
+            Drawable::ValueField(field) => field.is_toggled(),
+            Drawable::Dropdown(dropdown) => dropdown.is_toggled(),
         }
     }
 }
@@ -99,6 +143,8 @@ impl DrawableComponent for Drawable {
             Drawable::Compass(compass) => compass.initialize(),
             Drawable::Label(label) => label.initialize(),
             Drawable::DepthProfile(profile) => profile.initialize(),
+            Drawable::ValueField(field) => field.initialize(),
+            Drawable::Dropdown(dropdown) => dropdown.initialize(),
         }
     }
 
@@ -109,6 +155,8 @@ impl DrawableComponent for Drawable {
             Drawable::Compass(compass) => compass.draw(target),
             Drawable::Label(label) => label.draw(target),
             Drawable::DepthProfile(profile) => profile.draw(target),
+            Drawable::ValueField(field) => field.draw(target),
+            Drawable::Dropdown(dropdown) => dropdown.draw(target),
         }
     }
 
@@ -119,6 +167,8 @@ impl DrawableComponent for Drawable {
             Drawable::Compass(compass) => compass.update(state),
             Drawable::Label(label) => label.update(state),
             Drawable::DepthProfile(profile) => profile.update(state),
+            Drawable::ValueField(field) => field.update(state),
+            Drawable::Dropdown(dropdown) => dropdown.update(state),
         }
     }
 
@@ -129,6 +179,8 @@ impl DrawableComponent for Drawable {
             Drawable::Compass(compass) => compass.needs_redraw(),
             Drawable::Label(label) => label.needs_redraw(),
             Drawable::DepthProfile(profile) => profile.needs_redraw(),
+            Drawable::ValueField(field) => field.needs_redraw(),
+            Drawable::Dropdown(dropdown) => dropdown.needs_redraw(),
         }
     }
 
@@ -139,6 +191,8 @@ impl DrawableComponent for Drawable {
             Drawable::Compass(compass) => compass.set_needs_redraw(needs_redraw),
             Drawable::Label(label) => label.set_needs_redraw(needs_redraw),
             Drawable::DepthProfile(profile) => profile.set_needs_redraw(needs_redraw),
+            Drawable::ValueField(field) => field.set_needs_redraw(needs_redraw),
+            Drawable::Dropdown(dropdown) => dropdown.set_needs_redraw(needs_redraw),
         }
     }
 
@@ -149,6 +203,8 @@ impl DrawableComponent for Drawable {
             Drawable::Compass(compass) => compass.cleanup(),
             Drawable::Label(label) => label.cleanup(),
             Drawable::DepthProfile(profile) => profile.cleanup(),
+            Drawable::ValueField(field) => field.cleanup(),
+            Drawable::Dropdown(dropdown) => dropdown.cleanup(),
         }
     }
 }
@@ -160,6 +216,10 @@ pub enum Action {
     None,
     /// Switch to the scene at the given index.
     SwitchScene(usize),
+    /// Move a setting by the given number of steps: see `State::adjust_setting`.
+    AdjustSetting(Setting, i8),
+    /// Set a setting to the option at the given index: see `State::select_setting`.
+    SelectSetting(Setting, usize),
 }
 
 pub trait Clickable {
@@ -215,6 +275,7 @@ pub enum DecoDisplay {
 }
 
 pub struct State {
+    /// Pressure from the sensor in mbar.
     pub pressure: f32,
     pub temperature: f32,
     pub datetime: DateTime,
@@ -233,6 +294,7 @@ pub struct State {
     pub deco: DecoDisplay,
     /// Time to surface in minutes, `None` when unknown.
     pub tts_min: Option<u16>,
+    pub settings: Settings,
 }
 
 impl State {
@@ -241,7 +303,7 @@ impl State {
             pressure: 20.0,
             temperature: 20.0,
             datetime: DateTime {
-                date: Date::new(1, 1, 2025),
+                date: Date::new(1, 1, 2026),
                 time: Time::new(22, 35),
             },
             battery: 0xff,
@@ -254,6 +316,7 @@ impl State {
             ascent_rate_m_min: 0.0,
             deco: DecoDisplay::Unknown,
             tts_min: None,
+            settings: Settings::new(),
         }
     }
 }

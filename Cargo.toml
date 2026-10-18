@@ -24,6 +24,8 @@ default = []
 simulator = ["embedded-graphics-simulator"]
 serde = []
 std = []
+# Show the raw pressure (mbar) in place of TTS on the dive screen
+raw-pressure = []
 
 
 # sdl2 0.37 transmutes raw SDL event types into an enum (src/sdl2/event.rs:336).

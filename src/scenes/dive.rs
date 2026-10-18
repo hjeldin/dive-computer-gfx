@@ -34,16 +34,35 @@ struct Cell {
 }
 
 /// Data table cells, laid out in two columns, left to right then down.
+/// With the `raw-pressure` feature the TTS cell shows the raw sensor pressure
+/// instead, for testing the pressure sensor.
 const CELLS: [Cell; 6] = [
     Cell { title: "Depth", title_update: None, value: show_depth },
     Cell { title: "NDL", title_update: Some(show_deco_title), value: show_deco },
     Cell { title: "Max Depth", title_update: None, value: show_max_depth },
     Cell { title: "Runtime", title_update: None, value: show_runtime },
+    #[cfg(not(feature = "raw-pressure"))]
     Cell { title: "TTS", title_update: None, value: show_tts },
+    #[cfg(feature = "raw-pressure")]
+    Cell { title: "mbar", title_update: None, value: show_pressure },
     Cell { title: "Asc Rate", title_update: None, value: show_ascent_rate },
 ];
 
-pub fn build_dive() -> scene::Scene {
+/// Top of the depth profile, below the data table.
+const PROFILE_TOP: i32 = CONTENT_TOP + 3 * ROW_HEIGHT + 6;
+
+/// The dive scene's depth profile, empty, at its place in the scene.
+/// Put it in static memory and pass it to `build_dive`: see `Drawable`.
+pub fn new_depth_profile() -> DepthProfile {
+    DepthProfile::new(
+        Point::new(2, PROFILE_TOP),
+        Size::new(320 - 8, (240 - 2 - PROFILE_TOP) as u32),
+        MonoTextStyle::new(&PROFONT_7_POINT, Rgb565::WHITE),
+    )
+}
+
+/// Builds the dive scene around `profile`, made by `new_depth_profile`.
+pub fn build_dive(profile: &'static mut DepthProfile) -> scene::Scene {
     let mut scene = scene::Scene::new();
     scene.add_component(Drawable::Background(Background::new(
         Point::new(0, CONTENT_TOP),
@@ -99,12 +118,7 @@ pub fn build_dive() -> scene::Scene {
     )));
 
     // Depth profile across the full width below
-    let profile_top = table_bottom + 6;
-    scene.add_component(Drawable::DepthProfile(DepthProfile::new(
-        Point::new(2, profile_top),
-        Size::new(320 - 8, (240 - 2 - profile_top) as u32),
-        MonoTextStyle::new(&PROFONT_7_POINT, Rgb565::WHITE),
-    )));
+    scene.add_component(Drawable::DepthProfile(profile));
 
     scene
 }
@@ -146,6 +160,12 @@ fn show_ascent_rate(label: &mut Label, state: &State) {
     // Whole metres; a rounded -0.0 converts to 0
     let rate = roundf(state.ascent_rate_m_min) as i32;
     label.set_label_fmt(format_args!("{}m/min", rate));
+}
+
+/// Raw sensor pressure; seven characters up to 9999.9 mbar fit the cell.
+#[cfg(feature = "raw-pressure")]
+fn show_pressure(label: &mut Label, state: &State) {
+    label.set_label_fmt(format_args!("{:.1}", state.pressure));
 }
 
 fn show_runtime(label: &mut Label, state: &State) {
@@ -206,6 +226,14 @@ mod tests {
         assert_shown(show_ascent_rate, &state, "-18m/min");
     }
 
+    #[cfg(feature = "raw-pressure")]
+    #[test]
+    fn raw_pressure() {
+        let mut state = State::new();
+        state.pressure = 1013.27;
+        assert_shown(show_pressure, &state, "1013.3");
+    }
+
     #[test]
     fn runtime() {
         let mut state = State::new();
@@ -213,6 +241,7 @@ mod tests {
         assert_shown(show_runtime, &state, "23:41");
     }
 
+    #[cfg(not(feature = "raw-pressure"))]
     #[test]
     fn table_titles() {
         let titles: [&str; 6] = CELLS.map(|cell| cell.title);

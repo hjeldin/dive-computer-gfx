@@ -109,6 +109,7 @@ pub enum ApplicationState {
     Startup(states::StartupState),
     Dive(states::DiveState),
     Tissues(states::TissuesState),
+    Settings(states::SettingsState),
 }
 
 impl AppState for ApplicationState {
@@ -117,6 +118,7 @@ impl AppState for ApplicationState {
             ApplicationState::Startup(s) => s.enter(state),
             ApplicationState::Dive(s) => s.enter(state),
             ApplicationState::Tissues(s) => s.enter(state),
+            ApplicationState::Settings(s) => s.enter(state),
         }
     }
 
@@ -125,6 +127,7 @@ impl AppState for ApplicationState {
             ApplicationState::Startup(s) => s.update(state),
             ApplicationState::Dive(s) => s.update(state),
             ApplicationState::Tissues(s) => s.update(state),
+            ApplicationState::Settings(s) => s.update(state),
         }
     }
 
@@ -133,6 +136,7 @@ impl AppState for ApplicationState {
             ApplicationState::Startup(s) => s.exit(state),
             ApplicationState::Dive(s) => s.exit(state),
             ApplicationState::Tissues(s) => s.exit(state),
+            ApplicationState::Settings(s) => s.exit(state),
         }
     }
 
@@ -141,6 +145,7 @@ impl AppState for ApplicationState {
             ApplicationState::Startup(s) => s.scene_index(),
             ApplicationState::Dive(s) => s.scene_index(),
             ApplicationState::Tissues(s) => s.scene_index(),
+            ApplicationState::Settings(s) => s.scene_index(),
         }
     }
 }
@@ -190,9 +195,11 @@ impl StateMachine {
         }
 
         // Update all components in the active scene with the current state
-        if let Some(scene) = scene_manager.get_active_scene() {
-            scene.update(&self.app_state);
-        }
+        let action = match scene_manager.get_active_scene() {
+            Some(scene) => scene.update(&self.app_state),
+            None => Action::None,
+        };
+        self.handle_action(action, scene_manager);
     }
 
     /// Apply an action requested by a component, such as a button click.
@@ -200,6 +207,8 @@ impl StateMachine {
         match action {
             Action::None => {}
             Action::SwitchScene(index) => self.enter_scene(index, scene_manager),
+            Action::AdjustSetting(setting, delta) => self.app_state.adjust_setting(setting, delta),
+            Action::SelectSetting(setting, index) => self.app_state.select_setting(setting, index),
         }
     }
 
@@ -241,13 +250,14 @@ mod tests {
 
     fn setup() -> (StateMachine, SceneManager) {
         let mut scene_manager = SceneManager::new();
-        for _ in 0..3 {
+        for _ in 0..4 {
             scene_manager.add_scene(Scene::new());
         }
         let mut state_machine = StateMachine::new();
         state_machine.add_state(states::create_startup_state());
         state_machine.add_state(states::create_dive_state());
         state_machine.add_state(states::create_tissues_state());
+        state_machine.add_state(states::create_settings_state());
         (state_machine, scene_manager)
     }
 
@@ -289,5 +299,26 @@ mod tests {
 
         state_machine.handle_action(Action::None, &mut scene_manager);
         assert_eq!(state_machine.current_scene_index(), Some(states::TISSUES_SCENE));
+    }
+
+    #[test]
+    fn test_settings_actions_change_state() {
+        use crate::common::Setting;
+        let (mut state_machine, mut scene_manager) = setup();
+        state_machine.handle_action(Action::SwitchScene(states::SETTINGS_SCENE), &mut scene_manager);
+        assert_eq!(state_machine.current_scene_index(), Some(states::SETTINGS_SCENE));
+
+        let gf_high = state_machine.state().settings.gf_high;
+        state_machine.handle_action(Action::AdjustSetting(Setting::GfHigh, 1), &mut scene_manager);
+        assert_eq!(state_machine.state().settings.gf_high, gf_high + 5);
+    }
+
+    #[test]
+    fn test_settings_switches_to_dive_on_depth() {
+        let (mut state_machine, mut scene_manager) = setup();
+        state_machine.handle_action(Action::SwitchScene(states::SETTINGS_SCENE), &mut scene_manager);
+        state_machine.state_mut().depth_m = 6.0;
+        state_machine.update(&mut scene_manager);
+        assert_eq!(state_machine.current_scene_index(), Some(states::DIVE_SCENE));
     }
 }

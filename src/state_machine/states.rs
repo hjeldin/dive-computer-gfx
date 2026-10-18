@@ -1,7 +1,7 @@
 //! Application states and the transitions between them
 
 use crate::common::State;
-use crate::scenes::{startup, dive, tissues};
+use crate::scenes::{startup, dive, tissues, settings};
 use crate::state_machine::{AppState, StateNode, Transition, ApplicationState};
 
 /// Scene index of the startup scene in the scene manager
@@ -10,6 +10,8 @@ pub const STARTUP_SCENE: usize = 0;
 pub const DIVE_SCENE: usize = 1;
 /// Scene index of the tissues scene in the scene manager
 pub const TISSUES_SCENE: usize = 2;
+/// Scene index of the settings scene in the scene manager
+pub const SETTINGS_SCENE: usize = 3;
 
 /// State for the startup screen
 #[derive(Clone)]
@@ -151,6 +153,38 @@ impl AppState for TissuesState {
     }
 }
 
+/// State for the settings screen
+#[derive(Clone)]
+pub struct SettingsState {
+    /// The scene index for the settings scene
+    scene_index: usize,
+}
+
+impl SettingsState {
+    /// Create a new settings state
+    pub fn new(scene_index: usize) -> Self {
+        Self { scene_index }
+    }
+}
+
+impl AppState for SettingsState {
+    fn enter(&mut self, _state: &mut State) {
+        defmt::info!("Entering settings state");
+    }
+
+    fn update(&mut self, _state: &mut State) {
+        // Settings change through actions from the settings scene
+    }
+
+    fn exit(&mut self, _state: &mut State) {
+        defmt::info!("Exiting settings state");
+    }
+
+    fn scene_index(&self) -> usize {
+        self.scene_index
+    }
+}
+
 /// Create a state node for the startup state with transitions to other states
 pub fn create_startup_state() -> StateNode<ApplicationState, ApplicationState> {
     let state = ApplicationState::Startup(StartupState::new(STARTUP_SCENE));
@@ -199,17 +233,37 @@ pub fn create_tissues_state() -> StateNode<ApplicationState, ApplicationState> {
     node
 }
 
-/// Initialize the state machine with scenes and states
-pub fn initialize_state_machine(scene_manager: &mut crate::scene::scene_manager::SceneManager) -> crate::state_machine::StateMachine {
+/// Create a state node for the settings state with transitions to other states
+pub fn create_settings_state() -> StateNode<ApplicationState, ApplicationState> {
+    let state = ApplicationState::Settings(SettingsState::new(SETTINGS_SCENE));
+    let mut node = StateNode::new(state);
+
+    // A dive can start while the settings are open: switch to the dive state below 5 m
+    node.add_transition(Transition::new(
+        |state| state.depth_m > 5.0,
+        || ApplicationState::Dive(DiveState::new(DIVE_SCENE)),
+    ));
+
+    node
+}
+
+/// Initialize the state machine with scenes and states.
+/// `profile` is the dive scene's depth profile, from `dive::new_depth_profile`.
+pub fn initialize_state_machine(
+    scene_manager: &mut crate::scene::scene_manager::SceneManager,
+    profile: &'static mut crate::components::depth_profile::DepthProfile,
+) -> crate::state_machine::StateMachine {
     // Create scenes
     let startup_scene = startup::build_startup();
-    let dive_scene = dive::build_dive();
+    let dive_scene = dive::build_dive(profile);
     let tissues_scene = tissues::build_tissues();
+    let settings_scene = settings::build_settings();
 
     // Add scenes to scene manager, in the order the scene index constants expect
     scene_manager.add_scene(startup_scene);
     scene_manager.add_scene(dive_scene);
     scene_manager.add_scene(tissues_scene);
+    scene_manager.add_scene(settings_scene);
 
     // Create state machine
     let mut state_machine = crate::state_machine::StateMachine::new();
@@ -218,6 +272,7 @@ pub fn initialize_state_machine(scene_manager: &mut crate::scene::scene_manager:
     state_machine.add_state(create_startup_state());
     state_machine.add_state(create_dive_state());
     state_machine.add_state(create_tissues_state());
+    state_machine.add_state(create_settings_state());
 
     state_machine
 }
@@ -225,6 +280,24 @@ pub fn initialize_state_machine(scene_manager: &mut crate::scene::scene_manager:
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scene::MAX_COMPONENTS;
+
+    #[test]
+    fn test_scenes_fit() {
+        extern crate std;
+        let profile = std::boxed::Box::leak(std::boxed::Box::new(dive::new_depth_profile()));
+        let scenes = [
+            ("startup", startup::build_startup()),
+            ("dive", dive::build_dive(profile)),
+            ("tissues", tissues::build_tissues()),
+            ("settings", settings::build_settings()),
+        ];
+        for (name, scene) in &scenes {
+            // A full scene drops components with only a warning
+            assert!(scene.component_count() < MAX_COMPONENTS, "{} scene has {} components", name, scene.component_count());
+            std::println!("{} scene: {} components", name, scene.component_count());
+        }
+    }
 
     #[test]
     fn test_simulated_dive_profile() {

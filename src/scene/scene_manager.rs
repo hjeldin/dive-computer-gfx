@@ -12,7 +12,8 @@ use core::option::Option;
 
 use super::Scene;
 
-const MAX_SCENES_COUNT: usize = 5;
+/// One per scene index in `state_machine::states`.
+const MAX_SCENES_COUNT: usize = 4;
 /// Manages multiple scenes and handles the currently active scene.
 ///
 /// The owner (e.g. the main loop) holds the manager. Components request scene

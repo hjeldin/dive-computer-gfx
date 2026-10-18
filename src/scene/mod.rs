@@ -2,7 +2,8 @@ use embedded_graphics::{
     draw_target::DrawTarget,
     pixelcolor::Rgb565,
 };
-use crate::common::{Action, Drawable, DrawableComponent, State, Toggleable};
+use crate::common::{Action, Clickable, Drawable, DrawableComponent, State, Toggleable};
+use crate::components::popup::Popup;
 use heapless::Vec;
 use core::option::Option::Some;
 use core::option::Option::None;
@@ -11,11 +12,15 @@ use core::result::Result::Ok;
 use core::option::Option;
 
 pub mod scene_manager;
-const MAX_COMPONENTS: usize = 32;
+/// Room for the largest scene, settings, with a few spare. `test_scenes_fit` checks it.
+pub(crate) const MAX_COMPONENTS: usize = 26;
 
 pub struct Scene {
     components: Vec<Drawable, MAX_COMPONENTS>,
-    current_toggle_index: Option<usize>
+    current_toggle_index: Option<usize>,
+    /// A popup shown over the components. While it is open it gets all the
+    /// input, and the components below are not drawn.
+    popup: Option<Popup>,
 }
 
 impl Scene {
@@ -24,11 +29,29 @@ impl Scene {
         Self {
             components: Vec::new(),
             current_toggle_index: None,
+            popup: None,
         }
+    }
+
+    /// Shows `popup` over the scene, replacing any popup already shown.
+    /// Selection and clicks go to the popup until one of its buttons is clicked.
+    pub fn show_popup(&mut self, mut popup: Popup) {
+        popup.initialize();
+        self.popup = Some(popup);
+    }
+
+    /// Returns true while a popup is shown.
+    pub fn has_popup(&self) -> bool {
+        self.popup.is_some()
     }
 
     /// Add a component to the scene.
     /// Initializes the component as part of adding it.
+    /// Number of components in the scene.
+    pub fn component_count(&self) -> usize {
+        self.components.len()
+    }
+
     pub fn add_component(&mut self, mut component: Drawable) {
         component.initialize();
         if self.components.push(component).is_err() {
@@ -40,6 +63,13 @@ impl Scene {
     /// Components are drawn in order, so a component on top of another is
     /// only correct if both are dirty together, as after `activate`.
     pub fn draw<D: DrawTarget<Color = Rgb565>>(&mut self, target: &mut D) -> Result<(), D::Error> {
+        if let Some(popup) = &mut self.popup {
+            if popup.needs_redraw() {
+                popup.draw(target)?;
+                popup.set_needs_redraw(false);
+            }
+            return Ok(());
+        }
         for component in &mut self.components {
             if component.needs_redraw() {
                 component.draw(target)?;
@@ -65,6 +95,7 @@ impl Scene {
         }
         self.components.clear();
         self.current_toggle_index = None;
+        self.popup = None;
     }
 
     /// Select the component at `index`, or clear the selection with `None`.
@@ -73,20 +104,44 @@ impl Scene {
         self.select(index.filter(|&i| self.components.get(i).is_some_and(Drawable::is_selectable)));
     }
 
+    /// The selected component, if it is editing its value.
+    fn editing_index(&self) -> Option<usize> {
+        self.current_toggle_index.filter(|&index| self.components[index].is_editing())
+    }
+
     /// Select the next selectable component, wrapping around.
     /// With no selection, selects the first selectable component.
-    pub fn select_next_toggleable(&mut self) {
+    /// While the selected component is editing, steps its value instead
+    /// and returns the action it requests.
+    pub fn select_next_toggleable(&mut self) -> Action {
+        if let Some(popup) = &mut self.popup {
+            popup.focus_next();
+            return Action::None;
+        }
+        if let Some(index) = self.editing_index() {
+            return self.components[index].edit_step();
+        }
         let len = self.components.len();
         let start = self.current_toggle_index.map_or(0, |current| current + 1);
         let next = (0..len)
             .map(|offset| (start + offset) % len)
             .find(|&index| self.components[index].is_selectable());
         self.select(next);
+        Action::None
     }
 
     /// Select the previous selectable component, wrapping around.
     /// With no selection, selects the last selectable component.
+    /// Does nothing while the selected component is editing: values only step
+    /// forward, as the device has no previous button.
     pub fn select_prev_toggleable(&mut self) {
+        if let Some(popup) = &mut self.popup {
+            popup.focus_prev();
+            return;
+        }
+        if self.editing_index().is_some() {
+            return;
+        }
         let len = self.components.len();
         let start = self.current_toggle_index.unwrap_or(0) + len;
         let prev = (1..=len)
@@ -106,17 +161,41 @@ impl Scene {
     }
 
     /// Click the selected component and return the action it requests.
+    /// Clicking a value field or a dropdown starts or ends editing it.
+    /// With a popup shown, clicks its focused button, closes it and redraws the scene.
     pub fn click_currently_toggled(&mut self) -> Action {
-        match self.current_toggle_index {
-            Some(index) => self.components[index].click(),
-            None => Action::None,
+        if let Some(mut popup) = self.popup.take() {
+            self.activate();
+            return popup.click();
         }
+        let Some(index) = self.current_toggle_index else {
+            return Action::None;
+        };
+        let component = &mut self.components[index];
+        let was_editing = component.is_editing();
+        let action = component.click();
+        if was_editing && !component.is_editing() && component.edit_covers_others() {
+            // The edit drew over other components: draw them again
+            self.activate();
+        }
+        action
     }
 
-    pub fn update(&mut self, state: &State) {
+    /// Updates the components and the popup. Returns the action of a popup that
+    /// closed because its auto-dismiss timeout ran out, else `Action::None`.
+    pub fn update(&mut self, state: &State) -> Action {
         for component in &mut self.components {
             component.update(state);
         }
+        if let Some(popup) = &mut self.popup {
+            popup.update(state);
+            if let Some(action) = popup.timed_out(state.uptime_ms) {
+                self.popup = None;
+                self.activate();
+                return action;
+            }
+        }
+        Action::None
     }
 
 }
@@ -383,6 +462,113 @@ mod tests {
         target.0 = 0;
         scene.draw(&mut target).unwrap();
         assert!(target.0 > 0);
+    }
+
+    fn popup_scene() -> Scene {
+        use crate::components::popup::PopupIcon;
+        let mut scene = mixed_scene();
+        scene.select_next_toggleable();
+        let popup = Popup::new(Size::new(320, 240), "Title", "Text", PopupIcon::Info, Action::SwitchScene(1))
+            .with_dismiss(Action::SwitchScene(2), "Cancel");
+        scene.show_popup(popup);
+        scene
+    }
+
+    #[test]
+    fn test_popup_takes_selection_and_click() {
+        let mut scene = popup_scene();
+        scene.select_next_toggleable();
+        assert_eq!(scene.current_toggle_index, Some(1), "scene selection does not move");
+        assert_eq!(scene.click_currently_toggled(), Action::SwitchScene(2));
+        assert!(!scene.has_popup());
+        assert_eq!(scene.click_currently_toggled(), Action::None, "button 1 has no callback");
+    }
+
+    #[test]
+    fn test_popup_hides_components_until_closed() {
+        let mut scene = Scene::new();
+        scene.add_component(depth_label());
+        let mut target = PixelCounter(0);
+        scene.draw(&mut target).unwrap();
+
+        scene.show_popup(Popup::new(
+            Size::new(320, 240), "Title", "Text", crate::components::popup::PopupIcon::Info, Action::None,
+        ));
+        let mut state = State::new();
+        state.pressure = 3.0;
+        scene.update(&state);
+        target.0 = 0;
+        scene.draw(&mut target).unwrap();
+        let popup_pixels = target.0;
+        assert!(popup_pixels > 0);
+
+        target.0 = 0;
+        scene.draw(&mut target).unwrap();
+        assert_eq!(target.0, 0, "the label under the popup is not drawn");
+
+        assert_eq!(scene.click_currently_toggled(), Action::None);
+        scene.draw(&mut target).unwrap();
+        assert!(target.0 > 0, "closing the popup redraws the scene");
+    }
+
+    #[test]
+    fn test_popup_auto_dismiss_closes_it() {
+        use crate::components::popup::PopupIcon;
+        let mut scene = mixed_scene();
+        let popup = Popup::new(Size::new(320, 240), "Title", "Text", PopupIcon::Info, Action::None)
+            .with_dismiss(Action::SwitchScene(2), "Cancel")
+            .with_auto_dismiss_after(1_000);
+        scene.show_popup(popup);
+
+        let mut state = State::new();
+        state.uptime_ms = 100;
+        assert_eq!(scene.update(&state), Action::None);
+        state.uptime_ms = 1_100;
+        assert_eq!(scene.update(&state), Action::SwitchScene(2));
+        assert!(!scene.has_popup());
+    }
+
+    fn settings_scene() -> Scene {
+        use crate::common::Setting;
+        use crate::components::dropdown::Dropdown;
+        use crate::components::value_field::ValueField;
+        let mut scene = Scene::new();
+        scene.add_component(Drawable::ValueField(ValueField::new(Point::zero(), Size::new(10, 10), Setting::Hour)));
+        scene.add_component(Drawable::Dropdown(Dropdown::new(
+            Point::new(0, 20), Size::new(10, 10), Setting::UsbMode, &["A", "B"], |_| 0,
+        )));
+        scene.add_component(depth_label());
+        scene.select_next_toggleable();
+        scene
+    }
+
+    #[test]
+    fn test_editing_field_takes_next() {
+        use crate::common::Setting;
+        let mut scene = settings_scene();
+        scene.click_currently_toggled();
+        assert_eq!(scene.select_next_toggleable(), Action::AdjustSetting(Setting::Hour, 1));
+        scene.select_prev_toggleable();
+        assert_eq!(scene.current_toggle_index, Some(0), "selection does not move while editing");
+
+        scene.click_currently_toggled();
+        assert_eq!(scene.select_next_toggleable(), Action::None);
+        assert_eq!(scene.current_toggle_index, Some(1));
+    }
+
+    #[test]
+    fn test_closing_dropdown_redraws_scene() {
+        use crate::common::Setting;
+        let mut scene = settings_scene();
+        scene.select_next_toggleable();
+        let mut target = PixelCounter(0);
+        scene.draw(&mut target).unwrap();
+
+        scene.click_currently_toggled();
+        scene.select_next_toggleable();
+        scene.draw(&mut target).unwrap();
+        assert_eq!(scene.click_currently_toggled(), Action::SelectSetting(Setting::UsbMode, 1));
+        assert!(scene.components[2].needs_redraw(), "the label under the list is drawn again");
     }
 
     #[test]

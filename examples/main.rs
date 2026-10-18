@@ -15,6 +15,8 @@ use stm_graphics::status;
 use stm_graphics::utils;
 use stm_graphics::scene::scene_manager::SceneManager;
 use stm_graphics::state_machine::states;
+use stm_graphics::Action;
+use stm_graphics::components::popup::{Popup, PopupIcon};
 
 fn main() -> Result<(), core::convert::Infallible> {
     let mut display: SimulatorDisplay<Rgb565> = SimulatorDisplay::new(Size::new(320, 240));
@@ -27,7 +29,9 @@ fn main() -> Result<(), core::convert::Infallible> {
     let mut scene_manager = SceneManager::new();
 
     // Initialize the state machine with scenes
-    let mut state_machine = states::initialize_state_machine(&mut scene_manager);
+    // Lives for the whole program, like the static the firmware keeps it in
+    let profile = Box::leak(Box::new(stm_graphics::dive::new_depth_profile()));
+    let mut state_machine = states::initialize_state_machine(&mut scene_manager, profile);
 
     let mut wnd = Window::new("Dive computer", &output_settings);
     let _ = status_bar.draw(&mut display);
@@ -87,7 +91,8 @@ fn main() -> Result<(), core::convert::Infallible> {
                 Keycode::RIGHT => {
                     // defmt::info!("Right key pressed");
                     if let Some(scene) = scene_manager.get_active_scene() {
-                        scene.select_next_toggleable();
+                        let action = scene.select_next_toggleable();
+                        state_machine.handle_action(action, &mut scene_manager);
                     }
                 }
 
@@ -135,6 +140,23 @@ fn main() -> Result<(), core::convert::Infallible> {
                     // Decrease set course, starting from the heading when unset
                     let s = state_machine.state_mut();
                     s.set_course = Some((s.set_course.unwrap_or(s.heading) - 10.0 + 360.0) % 360.0);
+                }
+
+                Keycode::P => {
+                    // Show a test popup over the active scene
+                    if let Some(scene) = scene_manager.get_active_scene() {
+                        let popup = Popup::new(
+                            display.size(),
+                            "Ascent too fast",
+                            "Slow down your ascent. Stay below 9 m/min until the warning clears.",
+                            PopupIcon::Warning,
+                            Action::None,
+                        )
+                        .with_size(display.size() - Size::new(20, 100))
+                        .with_dismiss(Action::None, "Cancel")
+                        .with_auto_dismiss();
+                        scene.show_popup(popup);
+                    }
                 }
 
                 Keycode::C => {
